@@ -42,6 +42,16 @@ let touchStartY = 0;
 let touchEndX = 0;
 let touchEndY = 0;
 const swipeThreshold = 50;
+let viewerScale = 1;
+let viewerTranslateX = 0;
+let viewerTranslateY = 0;
+let pinchStartDistance = 0;
+let pinchStartScale = 1;
+let panStartX = 0;
+let panStartY = 0;
+let panStartTranslateX = 0;
+let panStartTranslateY = 0;
+let isPinching = false;
 
 btnTomarFotos.addEventListener('click', () => fotoInput.click());
 
@@ -383,6 +393,7 @@ function openPhotoViewer(photos, index) {
     if (!Array.isArray(photos) || photos.length === 0) return;
     viewerPhotos = photos;
     viewerCurrent = Math.max(0, Math.min(index, photos.length - 1));
+    resetViewerTransform();
     updateViewer();
     photoViewer.classList.remove('hidden');
 }
@@ -390,8 +401,26 @@ function openPhotoViewer(photos, index) {
 function updateViewer() {
     if (!viewerPhotos.length) return;
     viewerImage.src = viewerPhotos[viewerCurrent];
+    resetViewerTransform();
     viewerIndex.textContent = String(viewerCurrent + 1);
     viewerTotal.textContent = String(viewerPhotos.length);
+}
+
+function resetViewerTransform() {
+    viewerScale = 1;
+    viewerTranslateX = 0;
+    viewerTranslateY = 0;
+    applyViewerTransform();
+}
+
+function applyViewerTransform() {
+    viewerImage.style.transform = `translate(${viewerTranslateX}px, ${viewerTranslateY}px) scale(${viewerScale})`;
+}
+
+function distanciaEntreToques(t1, t2) {
+    const dx = t2.clientX - t1.clientX;
+    const dy = t2.clientY - t1.clientY;
+    return Math.sqrt((dx * dx) + (dy * dy));
 }
 
 viewerClose.addEventListener('click', () => photoViewer.classList.add('hidden'));
@@ -412,11 +441,57 @@ photoViewer.addEventListener('click', (event) => {
 });
 
 viewerImage.addEventListener('touchstart', (event) => {
+    if (event.touches.length === 2) {
+        isPinching = true;
+        pinchStartDistance = distanciaEntreToques(event.touches[0], event.touches[1]);
+        pinchStartScale = viewerScale;
+        return;
+    }
+
     if (event.touches.length !== 1) return;
     touchStartX = event.touches[0].clientX;
     touchStartY = event.touches[0].clientY;
+
+    if (viewerScale > 1) {
+        panStartX = event.touches[0].clientX;
+        panStartY = event.touches[0].clientY;
+        panStartTranslateX = viewerTranslateX;
+        panStartTranslateY = viewerTranslateY;
+    }
 });
+viewerImage.addEventListener('touchmove', (event) => {
+    if (event.touches.length === 2) {
+        event.preventDefault();
+        const dist = distanciaEntreToques(event.touches[0], event.touches[1]);
+        if (!pinchStartDistance) pinchStartDistance = dist;
+        const rawScale = (dist / pinchStartDistance) * pinchStartScale;
+        viewerScale = Math.min(4, Math.max(1, rawScale));
+        applyViewerTransform();
+        return;
+    }
+
+    if (event.touches.length === 1 && viewerScale > 1) {
+        event.preventDefault();
+        const dx = event.touches[0].clientX - panStartX;
+        const dy = event.touches[0].clientY - panStartY;
+        viewerTranslateX = panStartTranslateX + dx;
+        viewerTranslateY = panStartTranslateY + dy;
+        applyViewerTransform();
+    }
+}, { passive: false });
 viewerImage.addEventListener('touchend', (event) => {
+    if (isPinching && event.touches.length < 2) {
+        isPinching = false;
+        pinchStartDistance = 0;
+        pinchStartScale = viewerScale;
+        if (viewerScale <= 1.02) {
+            resetViewerTransform();
+        }
+        return;
+    }
+
+    if (viewerScale > 1) return;
+
     touchEndX = event.changedTouches[0].clientX;
     touchEndY = event.changedTouches[0].clientY;
     const dx = touchEndX - touchStartX;

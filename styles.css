@@ -1,9 +1,10 @@
-body { font-family: Arial, sans-serif; margin: 20px; background-color: #f0f2f5; color: #333; }
-.contenedor { max-width: 900px; margin: auto; }
+body { font-family: Arial, sans-serif; margin: 0; background-color: #f0f2f5; color: #333; }
+.contenedor { max-width: 900px; margin: auto; padding: 16px; box-sizing: border-box; }
 h2, h3 { text-align: center; color: #1a252f; }
 .panel-ingreso { background: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 25px; }
-.fila-input { display: flex; gap: 10px; }
-input { flex: 1; padding: 10px; margin: 6px 0; border-radius: 6px; border: 1px solid #cccccc; box-sizing: border-box; font-size: 14px; }
+.fila-input { display: flex; gap: 10px; flex-wrap: wrap; }
+.fila-input input { min-width: 180px; flex: 1 1 180px; }
+input, select { flex: 1; padding: 10px; margin: 6px 0; border-radius: 6px; border: 1px solid #cccccc; box-sizing: border-box; font-size: 14px; }
 .btn-guardar-fijo { width: 100%; padding: 14px; margin-top: 10px; border-radius: 6px; border: none; font-weight: bold; cursor: pointer; font-size: 16px; background-color: #2b8a3e; color: white; display: block; text-align: center; }
 .btn-guardar-fijo:hover { background-color: #237032; }
 .pestanas { display: flex; gap: 4px; margin-bottom: 15px; background: #e0e0e0; padding: 5px; border-radius: 8px; flex-wrap: wrap; }
@@ -20,8 +21,13 @@ input { flex: 1; padding: 10px; margin: 6px 0; border-radius: 6px; border: 1px s
 .btn-whatsapp { background-color: #25d366; color: white; padding: 8px 14px; font-size: 13px; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; }
 .btn-whatsapp:hover { background-color: #1ebd59; }
 .btn-borrar { background-color: #e74c3c; color: white; margin-left: auto; padding: 8px 14px; font-size: 13px; border: none; border-radius: 5px; cursor: pointer; }
-.respaldo-bar { display: flex; gap: 10px; margin-bottom: 20px; justify-content: center; }
-.btn-respaldo { padding: 8px 15px; font-size: 12px; border-radius: 5px; border: 1px solid #ccc; cursor: pointer; background: #fff; font-weight: bold; }
+.respaldo-bar { display: flex; gap: 10px; margin-bottom: 20px; justify-content: center; flex-wrap: wrap; }
+.btn-respaldo { padding: 10px 16px; font-size: 13px; border-radius: 8px; border: 1px solid #ccc; cursor: pointer; background: #fff; font-weight: bold; min-width: 140px; }
+.buscador-row { display: flex; gap: 10px; align-items: center; margin-bottom: 20px; flex-wrap: wrap; }
+.buscador-row input { min-width: 160px; flex: 1 1 200px; }
+.buscador-row select { min-width: 140px; flex: 0 0 140px; }
+.buscador-row button { min-width: 120px; flex: 0 0 auto; }
+#btn-tomar-fotos { width: 100%; margin-top: 10px; }
 .txt-presupuesto { background-color: #f4ecf7; padding: 10px; border-radius: 6px; border: 1px solid #d2b4de; color: #6c3483; margin: 8px 0; font-size: 14px; }
 .txt-rechazado { background-color: #fce4d6; padding: 10px; border-radius: 6px; border: 1px solid #f4b084; color: #c65911; margin: 8px 0; font-size: 14px; }
 .txt-entregado { background-color: #e8f8f5; padding: 10px; border-radius: 6px; border: 1px solid #a3e4d7; color: #117a65; margin: 8px 0; font-size: 14px; }
@@ -40,4 +46,15 @@ input { flex: 1; padding: 10px; margin: 6px 0; border-radius: 6px; border: 1px s
 .photo-viewer-prev { left: 14px; }
 .photo-viewer-next { right: 14px; }
 .photo-viewer-counter { margin-top: 12px; color: white; font-weight: bold; font-size: 14px; background: rgba(0,0,0,0.3); padding: 6px 12px; border-radius: 999px; }
-@media (max-width: 600px) { .photo-viewer-nav { width: 38px; height: 38px; font-size: 26px; } .photo-viewer-close { width: 36px; height: 36px; font-size: 20px; } }
+@media (max-width: 600px) {
+    .photo-viewer-nav { width: 38px; height: 38px; font-size: 26px; }
+    .photo-viewer-close { width: 36px; height: 36px; font-size: 20px; }
+    .contenedor { padding: 12px; }
+    .panel-ingreso { padding: 16px; }
+    .fila-input { gap: 8px; }
+    .fila-input input { flex: 1 1 100%; min-width: 100%; }
+    .buscador-row input, .buscador-row select, .buscador-row button { flex: 1 1 100%; min-width: 100%; }
+    .respaldo-bar { gap: 8px; }
+    .btn-respaldo { min-width: 100%; }
+    .btn-guardar-fijo { font-size: 15px; }
+}

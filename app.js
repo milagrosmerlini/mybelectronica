@@ -14,8 +14,22 @@ const btnTomarFotos = document.getElementById('btn-tomar-fotos');
 const buscar = document.getElementById('buscar');
 const filtroEstado = document.getElementById('filtroEstado');
 const btnRefrescar = document.getElementById('btn-refrescar');
+const photoViewer = document.getElementById('photoViewer');
+const viewerClose = document.getElementById('viewerClose');
+const viewerPrev = document.getElementById('viewerPrev');
+const viewerNext = document.getElementById('viewerNext');
+const viewerImage = document.getElementById('viewerImage');
+const viewerIndex = document.getElementById('viewerIndex');
+const viewerTotal = document.getElementById('viewerTotal');
 
 let fotosTemporalesIngreso = [];
+let viewerPhotos = [];
+let viewerCurrent = 0;
+let touchStartX = 0;
+let touchStartY = 0;
+let touchEndX = 0;
+let touchEndY = 0;
+const swipeThreshold = 50;
 
 btnTomarFotos.addEventListener('click', ()=> fotoInput.click());
 fotoInput.addEventListener('change', async (e)=>{
@@ -30,8 +44,9 @@ fotoInput.addEventListener('change', async (e)=>{
 function mostrarVistaPreviaIngreso(){
     if(fotosTemporalesIngreso.length===0){ vistaPreviaIngreso.style.display='none'; return; }
     vistaPreviaIngreso.style.display='flex';
-    vistaPreviaIngreso.innerHTML = fotosTemporalesIngreso.map((f,i)=>`<div class="foto-contenedor"><img src="${f.dataUrl}" class="foto-miniatura" data-idx="${i}"></div>`).join('');
-    vistaPreviaIngreso.querySelectorAll('.foto-miniatura').forEach(img=> img.addEventListener('click', (ev)=> openImageModal(ev.target.src)));
+    const urls = fotosTemporalesIngreso.map(f=>f.dataUrl);
+    vistaPreviaIngreso.innerHTML = urls.map((url,i)=>`<div class="foto-contenedor"><img src="${url}" class="foto-miniatura" data-idx="${i}"></div>`).join('');
+    vistaPreviaIngreso.querySelectorAll('.foto-miniatura').forEach((img, idx)=> img.addEventListener('click', ()=> openPhotoViewer(urls, idx)));
 }
 
 function fileToDataUrl(file){ return new Promise((res,rej)=>{ const r=new FileReader(); r.onload=()=>res(r.result); r.onerror=rej; r.readAsDataURL(file); }); }
@@ -110,14 +125,63 @@ function renderLista(items){
                         `</div>`;
         lista.appendChild(div);
         // attach events
-        div.querySelectorAll('.foto-miniatura').forEach(img=> img.addEventListener('click', e=> openImageModal(e.target.dataset.url)));
+        div.querySelectorAll('.foto-miniatura').forEach((img, idx)=> img.addEventListener('click', ()=> openPhotoViewer(rep.fotos || [], idx)));
         div.querySelector('.btn-whatsapp').addEventListener('click', ()=> enviarWhatsAppDirecto(rep));
         div.querySelector('.btn-borrar').addEventListener('click', ()=> eliminarOrden(rep.id));
         div.querySelectorAll('.btn-flujo').forEach(b=> b.addEventListener('click', ()=> abrirPresupuesto(rep)));
     }
 }
 
-function openImageModal(src){ const w = window.open('','_blank'); w.document.write(`<html><body style="margin:0;background:#000;display:flex;align-items:center;justify-content:center;height:100vh;"><img src="${src}" style="max-width:100%;max-height:100%"></body></html>`); }
+function openPhotoViewer(photos, index){
+    if(!Array.isArray(photos) || photos.length === 0) return;
+    viewerPhotos = photos;
+    viewerCurrent = Math.max(0, Math.min(index, photos.length - 1));
+    viewerImage.src = viewerPhotos[viewerCurrent];
+    viewerIndex.textContent = viewerCurrent + 1;
+    viewerTotal.textContent = viewerPhotos.length;
+    photoViewer.classList.remove('hidden');
+}
+
+function updateViewer(){
+    if(!viewerPhotos.length) return;
+    viewerImage.src = viewerPhotos[viewerCurrent];
+    viewerIndex.textContent = viewerCurrent + 1;
+    viewerTotal.textContent = viewerPhotos.length;
+}
+
+viewerClose.addEventListener('click', ()=> photoViewer.classList.add('hidden'));
+viewerPrev.addEventListener('click', ()=>{
+    if(viewerCurrent > 0) { viewerCurrent--; updateViewer(); }
+});
+viewerNext.addEventListener('click', ()=>{
+    if(viewerCurrent < viewerPhotos.length - 1) { viewerCurrent++; updateViewer(); }
+});
+photoViewer.addEventListener('click', (event)=>{
+    if(event.target === photoViewer) photoViewer.classList.add('hidden');
+});
+
+viewerImage.addEventListener('touchstart', (event)=>{
+    if(event.touches.length !== 1) return;
+    touchStartX = event.touches[0].clientX;
+    touchStartY = event.touches[0].clientY;
+});
+viewerImage.addEventListener('touchend', (event)=>{
+    touchEndX = event.changedTouches[0].clientX;
+    touchEndY = event.changedTouches[0].clientY;
+    const dx = touchEndX - touchStartX;
+    const dy = touchEndY - touchStartY;
+    if(Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > swipeThreshold){
+        if(dx < 0 && viewerCurrent < viewerPhotos.length - 1){ viewerCurrent++; updateViewer(); }
+        else if(dx > 0 && viewerCurrent > 0){ viewerCurrent--; updateViewer(); }
+    }
+});
+
+document.addEventListener('keydown', (event)=>{
+    if(photoViewer.classList.contains('hidden')) return;
+    if(event.key === 'Escape') photoViewer.classList.add('hidden');
+    if(event.key === 'ArrowLeft') viewerPrev.click();
+    if(event.key === 'ArrowRight') viewerNext.click();
+});
 
 async function abrirPresupuesto(rep){
     const detalle = prompt('Detalle de falla/dx', rep.detalle_presupuesto||'') ; if(detalle===null) return;

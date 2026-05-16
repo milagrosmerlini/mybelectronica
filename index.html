@@ -53,6 +53,16 @@
     <div id="listaReparaciones"></div>
 </div>
 
+<div id="photoViewer" class="photo-viewer hidden">
+    <button id="viewerClose" class="photo-viewer-close" aria-label="Cerrar visor">✕</button>
+    <button id="viewerPrev" class="photo-viewer-nav photo-viewer-prev" aria-label="Foto anterior">‹</button>
+    <div class="photo-viewer-inner">
+        <img id="viewerImage" src="" alt="Foto de reparación" />
+        <div class="photo-viewer-counter"><span id="viewerIndex">0</span> / <span id="viewerTotal">0</span></div>
+    </div>
+    <button id="viewerNext" class="photo-viewer-nav photo-viewer-next" aria-label="Foto siguiente">›</button>
+</div>
+
 <script type="module" src="app.js"></script>
 </body>
 </html>

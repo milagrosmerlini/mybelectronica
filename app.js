@@ -50,8 +50,8 @@ fotoInput.addEventListener('change', async (e) => {
     if (!files.length) return;
 
     for (const file of files) {
-        const dataUrl = await fileToDataUrl(file);
-        fotosTemporalesIngreso.push({ file, dataUrl });
+        const dataUrl = await optimizarFotoParaGuardado(file);
+        fotosTemporalesIngreso.push({ dataUrl });
     }
 
     fotoInput.value = '';
@@ -65,6 +65,42 @@ function fileToDataUrl(file) {
         reader.onerror = reject;
         reader.readAsDataURL(file);
     });
+}
+
+async function optimizarFotoParaGuardado(file) {
+    // Fallback directo si el navegador no soporta canvas/imageBitmap.
+    if (typeof createImageBitmap !== 'function') {
+        return fileToDataUrl(file);
+    }
+
+    try {
+        const bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' });
+        const maxLado = 1600;
+        const escala = Math.min(1, maxLado / Math.max(bitmap.width, bitmap.height));
+        const ancho = Math.max(1, Math.round(bitmap.width * escala));
+        const alto = Math.max(1, Math.round(bitmap.height * escala));
+
+        const canvas = document.createElement('canvas');
+        canvas.width = ancho;
+        canvas.height = alto;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(bitmap, 0, 0, ancho, alto);
+        if (typeof bitmap.close === 'function') bitmap.close();
+
+        // Guardamos en JPEG comprimido para evitar "memoria insuficiente" en celulares.
+        let quality = 0.82;
+        let dataUrl = canvas.toDataURL('image/jpeg', quality);
+
+        // Límite de seguridad aproximado de 1.6 MB por foto en base64.
+        while (dataUrl.length > 1_600_000 && quality > 0.5) {
+            quality -= 0.08;
+            dataUrl = canvas.toDataURL('image/jpeg', quality);
+        }
+
+        return dataUrl;
+    } catch (_err) {
+        return fileToDataUrl(file);
+    }
 }
 
 function mostrarVistaPreviaIngreso() {
@@ -119,7 +155,7 @@ function extraerNumeroOrden(raw) {
 function normalizarOrden(raw, idx = 0) {
     const id = raw.id || raw.idOrden || `legacy_${Date.now()}_${idx}`;
     const detalle = (raw.detallePresupuesto ?? raw.detalle_presupuesto ?? '').toString();
-    const precio = (raw.precioPresupuesto ?? raw.precio_presupuesto ?? '').toString();
+    const precio = normalizarPrecioGuardado(raw.precioPresupuesto ?? raw.precio_presupuesto ?? '');
     const fueRep = normalizarBoolean(raw.fueReparado, normalizarBoolean(raw.fue_reparado, true));
     return {
         id,
@@ -147,6 +183,14 @@ function formatearPrecioFijo(precioRaw) {
     const limpio = String(precioRaw || '').replace(/\D/g, '');
     if (!limpio) return '0';
     return Number(limpio).toLocaleString('es-AR');
+}
+
+function normalizarPrecioGuardado(precioRaw) {
+    const txt = String(precioRaw ?? '').trim();
+    if (!txt) return '';
+    const limpio = txt.replace(/\D/g, '');
+    if (!limpio) return '';
+    return formatearPrecioFijo(limpio);
 }
 
 function limpiarNumeroTelefonoFijo(telRaw) {
@@ -551,8 +595,8 @@ async function guardarOrdenManual() {
         created_at: new Date().toISOString()
     };
 
-    const files = fotosTemporalesIngreso.map((f) => f.file);
-    await datastore.addOrder(nuevaOrden, files);
+    const fotosDataUrl = fotosTemporalesIngreso.map((f) => f.dataUrl);
+    await datastore.addOrder(nuevaOrden, fotosDataUrl);
 
     proximoNumeroOrden += 1;
 

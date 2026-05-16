@@ -30,17 +30,31 @@ async function fileToDataUrl(file) {
   });
 }
 
-async function addOrder(order, photoFiles) {
+async function addOrder(order, photoEntries) {
   const photoRecords = [];
 
-  if (Array.isArray(photoFiles) && photoFiles.length) {
-    for (let i = 0; i < photoFiles.length; i += 1) {
-      const file = photoFiles[i];
-      const dataUrl = await fileToDataUrl(file);
+  if (Array.isArray(photoEntries) && photoEntries.length) {
+    for (let i = 0; i < photoEntries.length; i += 1) {
+      const entry = photoEntries[i];
+      let dataUrl = '';
+      let name = `foto_${i + 1}`;
+
+      if (typeof entry === 'string') {
+        dataUrl = entry;
+      } else if (entry && typeof entry.dataUrl === 'string') {
+        dataUrl = entry.dataUrl;
+        if (entry.name) name = entry.name;
+      } else if (entry instanceof Blob) {
+        dataUrl = await fileToDataUrl(entry);
+        if (entry.name) name = entry.name;
+      }
+
+      if (!dataUrl) continue;
+
       photoRecords.push({
         id: `${order.id}_p_${Date.now()}_${i}`,
         orderId: order.id,
-        name: file.name || `foto_${i + 1}`,
+        name,
         dataUrl
       });
     }

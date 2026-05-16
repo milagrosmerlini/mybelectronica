@@ -1,18 +1,18 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MyB Electrónica - Gestión local</title>
+    <title>MyB Electronica - Gestion local</title>
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
 <div class="contenedor">
-    <h2>MyB Electrónica - Gestión de Reparaciones</h2>
+    <h2>MyB Electronica - Gestion de Reparaciones</h2>
 
     <div class="respaldo-bar">
-        <button class="btn-respaldo" id="btn-export">📥 Exportar JSON</button>
-        <button class="btn-respaldo" id="btn-import">📂 Importar JSON</button>
+        <button class="btn-respaldo" id="btn-export">Exportar JSON</button>
+        <button class="btn-respaldo" id="btn-import">Importar JSON</button>
         <input type="file" id="fileInput" style="display:none">
     </div>
 
@@ -21,46 +21,47 @@
             <input type="text" id="nombre" placeholder="Nombre del cliente">
             <input type="text" id="apellido" placeholder="Apellido del cliente">
         </div>
-        <input type="text" id="telefono" placeholder="Número de Teléfono (Ej: 1122334455)">
+        <input type="text" id="telefono" placeholder="Numero de Telefono (Ej: 1122334455 sin 0 ni 15)">
         <div class="fila-input">
-            <input type="text" id="marca" placeholder="Marca">
-            <input type="text" id="modelo" placeholder="Modelo">
+            <input type="text" id="marca" placeholder="Marca (Ej: Samsung, Motorola)">
+            <input type="text" id="modelo" placeholder="Modelo (Ej: A54, Moto Edge)">
         </div>
-        <input type="text" id="serie" placeholder="S/N o IMEI (Opcional)">
-        <input type="text" id="falla" placeholder="Falla reportada">
+        <input type="text" id="serie" placeholder="Numero de Serie / IMEI (Opcional)">
+        <input type="text" id="falla" placeholder="Falla reportada / Sintomas iniciales">
 
-        <button type="button" class="btn-flujo" id="btn-tomar-fotos">📷 Seleccionar Fotos (o usar cámara)</button>
+        <button type="button" class="btn-flujo" id="btn-tomar-fotos">SACAR FOTO AL APARATO (CAMARA EN VIVO)</button>
         <input type="file" id="fotoInput" accept="image/*" capture="environment" multiple style="display:none">
         <div id="vistaPreviaIngreso" class="galeria-fotos" style="display:none"></div>
 
-        <button type="button" class="btn-guardar-fijo" id="btn-guardar">➕ AGREGAR NUEVA ORDEN</button>
+        <button type="button" class="btn-guardar-fijo" id="btn-guardar">+ AGREGAR NUEVA ORDEN</button>
+    </div>
+
+    <h3>Ordenes de Trabajo</h3>
+
+    <div class="pestanas">
+        <button id="tab-aceptada" class="tab-btn activo">Aceptadas <span class="contador" id="cant-aceptada">0</span></button>
+        <button id="tab-presupuesta" class="tab-btn">Presupuestadas <span class="contador" id="cant-presupuesto">0</span></button>
+        <button id="tab-taller" class="tab-btn">En Taller <span class="contador" id="cant-taller">0</span></button>
+        <button id="tab-terminada" class="tab-btn">Sacadas/Terminadas <span class="contador" id="cant-terminada">0</span></button>
+        <button id="tab-archivada" class="tab-btn">Archivadas <span class="contador" id="cant-archivada">0</span></button>
     </div>
 
     <div class="buscador-row">
-        <input id="buscar" placeholder="Buscar por nombre, teléfono o orden..." />
-        <select id="filtroEstado">
-            <option value="">Todos</option>
-            <option value="Aceptada">Aceptada</option>
-            <option value="Presupuestada">Presupuestada</option>
-            <option value="En Reparación">En Reparación</option>
-            <option value="Terminada">Terminada</option>
-            <option value="Archivada">Archivada</option>
-        </select>
-        <button id="btn-refrescar">🔄 Refrescar</button>
+        <input id="buscar" placeholder="Buscar en la pestana actual (nombre, telefono u orden)" />
+        <button id="btn-refrescar">Refrescar</button>
     </div>
 
-    <h3>📋 Órdenes</h3>
     <div id="listaReparaciones"></div>
 </div>
 
 <div id="photoViewer" class="photo-viewer hidden">
-    <button id="viewerClose" class="photo-viewer-close" aria-label="Cerrar visor">✕</button>
-    <button id="viewerPrev" class="photo-viewer-nav photo-viewer-prev" aria-label="Foto anterior">‹</button>
+    <button id="viewerClose" class="photo-viewer-close" aria-label="Cerrar visor">X</button>
+    <button id="viewerPrev" class="photo-viewer-nav photo-viewer-prev" aria-label="Foto anterior">&lt;</button>
     <div class="photo-viewer-inner">
-        <img id="viewerImage" src="" alt="Foto de reparación" />
+        <img id="viewerImage" src="" alt="Foto de reparacion" />
         <div class="photo-viewer-counter"><span id="viewerIndex">0</span> / <span id="viewerTotal">0</span></div>
     </div>
-    <button id="viewerNext" class="photo-viewer-nav photo-viewer-next" aria-label="Foto siguiente">›</button>
+    <button id="viewerNext" class="photo-viewer-nav photo-viewer-next" aria-label="Foto siguiente">&gt;</button>
 </div>
 
 <script type="module" src="app.js"></script>

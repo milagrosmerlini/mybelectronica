@@ -21,7 +21,7 @@ function openDB() {
   });
 }
 
-async function fileToDataUrl(file) {
+async function blobToDataUrl(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => resolve(reader.result);
@@ -45,8 +45,14 @@ async function addOrder(order, photoEntries) {
         dataUrl = entry.dataUrl;
         if (entry.name) name = entry.name;
       } else if (entry instanceof Blob) {
-        dataUrl = await fileToDataUrl(entry);
         if (entry.name) name = entry.name;
+        photoRecords.push({
+          id: `${order.id}_p_${Date.now()}_${i}`,
+          orderId: order.id,
+          name,
+          blob: entry
+        });
+        continue;
       }
 
       if (!dataUrl) continue;
@@ -168,7 +174,11 @@ async function getOrders() {
           pReq.onerror = () => res();
         });
 
-        ord.fotos = photosForOrder.map((p) => p.dataUrl);
+        ord.fotos = photosForOrder.map((p) => {
+          if (p && p.blob instanceof Blob) return URL.createObjectURL(p.blob);
+          if (p && typeof p.dataUrl === 'string') return p.dataUrl;
+          return '';
+        }).filter(Boolean);
       }
 
       orders.sort((a, b) => {
@@ -190,7 +200,62 @@ async function getOrders() {
 }
 
 async function exportAll() {
-  return getOrders();
+  const db = await openDB();
+
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction([STORE_ORDERS, STORE_PHOTOS], 'readonly');
+    const ordersStore = tx.objectStore(STORE_ORDERS);
+    const photosStore = tx.objectStore(STORE_PHOTOS);
+    const req = ordersStore.getAll();
+
+    req.onsuccess = async () => {
+      const orders = req.result || [];
+
+      for (const ord of orders) {
+        const idx = photosStore.index('by_order');
+        const photosForOrder = [];
+        const pReq = idx.openCursor(IDBKeyRange.only(ord.id));
+
+        await new Promise((res) => {
+          pReq.onsuccess = function (ev) {
+            const c = ev.target.result;
+            if (c) {
+              photosForOrder.push(c.value);
+              c.continue();
+            } else {
+              res();
+            }
+          };
+          pReq.onerror = () => res();
+        });
+
+        const fotosExport = [];
+        for (const p of photosForOrder) {
+          if (p && typeof p.dataUrl === 'string') {
+            fotosExport.push(p.dataUrl);
+          } else if (p && p.blob instanceof Blob) {
+            fotosExport.push(await blobToDataUrl(p.blob));
+          }
+        }
+        ord.fotos = fotosExport;
+      }
+
+      orders.sort((a, b) => {
+        if (a.created_at && b.created_at) {
+          return b.created_at.localeCompare(a.created_at);
+        }
+        return 0;
+      });
+
+      db.close();
+      resolve(orders);
+    };
+
+    req.onerror = () => {
+      db.close();
+      reject(req.error);
+    };
+  });
 }
 
 async function importFromArray(arr) {

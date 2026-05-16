@@ -1,4 +1,4 @@
-﻿import datastore from './datastore.js';
+﻿import datastore from './datastore.js?v=20260516-blob1';
 
 const lista = document.getElementById('listaReparaciones');
 const fotoInput = document.getElementById('fotoInput');
@@ -55,6 +55,7 @@ let isPinching = false;
 let lastTapTime = 0;
 let lastTapX = 0;
 let lastTapY = 0;
+let blobUrlsRenderizados = [];
 
 btnTomarFotos.addEventListener('click', () => fotoInput.click());
 
@@ -63,56 +64,41 @@ fotoInput.addEventListener('change', async (e) => {
     if (!files.length) return;
 
     for (const file of files) {
-        const dataUrl = await optimizarFotoParaGuardado(file);
-        fotosTemporalesIngreso.push({ dataUrl });
+        const previewUrl = URL.createObjectURL(file);
+        fotosTemporalesIngreso.push({ file, previewUrl });
     }
 
     fotoInput.value = '';
     mostrarVistaPreviaIngreso();
 });
 
-function fileToDataUrl(file) {
-    return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(reader.result);
-        reader.onerror = reject;
-        reader.readAsDataURL(file);
-    });
+function limpiarFotosTemporalesIngreso() {
+    for (const f of fotosTemporalesIngreso) {
+        if (f && typeof f.previewUrl === 'string' && f.previewUrl.startsWith('blob:')) {
+            URL.revokeObjectURL(f.previewUrl);
+        }
+    }
+    fotosTemporalesIngreso = [];
 }
 
-async function optimizarFotoParaGuardado(file) {
-    // Fallback directo si el navegador no soporta canvas/imageBitmap.
-    if (typeof createImageBitmap !== 'function') {
-        return fileToDataUrl(file);
-    }
-
-    try {
-        const bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' });
-        const maxLado = 1600;
-        const escala = Math.min(1, maxLado / Math.max(bitmap.width, bitmap.height));
-        const ancho = Math.max(1, Math.round(bitmap.width * escala));
-        const alto = Math.max(1, Math.round(bitmap.height * escala));
-
-        const canvas = document.createElement('canvas');
-        canvas.width = ancho;
-        canvas.height = alto;
-        const ctx = canvas.getContext('2d');
-        ctx.drawImage(bitmap, 0, 0, ancho, alto);
-        if (typeof bitmap.close === 'function') bitmap.close();
-
-        // Guardamos en JPEG comprimido para evitar "memoria insuficiente" en celulares.
-        let quality = 0.82;
-        let dataUrl = canvas.toDataURL('image/jpeg', quality);
-
-        // Límite de seguridad aproximado de 1.6 MB por foto en base64.
-        while (dataUrl.length > 1_600_000 && quality > 0.5) {
-            quality -= 0.08;
-            dataUrl = canvas.toDataURL('image/jpeg', quality);
+function liberarBlobUrlsRenderizados() {
+    for (const url of blobUrlsRenderizados) {
+        try {
+            URL.revokeObjectURL(url);
+        } catch (_err) {
+            // noop
         }
+    }
+    blobUrlsRenderizados = [];
+}
 
-        return dataUrl;
+async function intentarPersistenciaStorage() {
+    try {
+        if (navigator.storage && navigator.storage.persist) {
+            await navigator.storage.persist();
+        }
     } catch (_err) {
-        return fileToDataUrl(file);
+        // noop
     }
 }
 
@@ -124,7 +110,7 @@ function mostrarVistaPreviaIngreso() {
     }
 
     vistaPreviaIngreso.style.display = 'flex';
-    const urls = fotosTemporalesIngreso.map((f) => f.dataUrl);
+    const urls = fotosTemporalesIngreso.map((f) => f.previewUrl);
     vistaPreviaIngreso.innerHTML = urls
         .map((url, i) => `<div class="foto-contenedor"><img src="${url}" class="foto-miniatura" data-idx="${i}"></div>`)
         .join('');
@@ -238,6 +224,7 @@ async function migrarOrdenesSiHaceFalta(items) {
 }
 
 async function fetchAndRender() {
+    liberarBlobUrlsRenderizados();
     const items = await datastore.getOrders();
     const normalizados = (items || []).map((it, idx) => normalizarOrden(it, idx));
 
@@ -245,6 +232,9 @@ async function fetchAndRender() {
 
     const refreshed = await datastore.getOrders();
     reparaciones = (refreshed || []).map((it, idx) => normalizarOrden(it, idx));
+    blobUrlsRenderizados = reparaciones
+        .flatMap((r) => Array.isArray(r.fotos) ? r.fotos : [])
+        .filter((url) => typeof url === 'string' && url.startsWith('blob:'));
 
     const numeros = reparaciones
         .map((it) => extraerNumeroOrden(it))
@@ -540,6 +530,11 @@ document.addEventListener('keydown', (event) => {
     if (event.key === 'ArrowRight') viewerNext.click();
 });
 
+window.addEventListener('beforeunload', () => {
+    limpiarFotosTemporalesIngreso();
+    liberarBlobUrlsRenderizados();
+});
+
 function construirMensajeWhatsApp(rep) {
     const numeroOrden = extraerNumeroOrden(rep) || rep.idOrden || rep.id;
 
@@ -696,8 +691,8 @@ async function guardarOrdenManual() {
         created_at: new Date().toISOString()
     };
 
-    const fotosDataUrl = fotosTemporalesIngreso.map((f) => f.dataUrl);
-    await datastore.addOrder(nuevaOrden, fotosDataUrl);
+    const files = fotosTemporalesIngreso.map((f) => f.file).filter(Boolean);
+    await datastore.addOrder(nuevaOrden, files);
 
     proximoNumeroOrden += 1;
 
@@ -709,7 +704,7 @@ async function guardarOrdenManual() {
     document.getElementById('serie').value = '';
     document.getElementById('falla').value = '';
 
-    fotosTemporalesIngreso = [];
+    limpiarFotosTemporalesIngreso();
     mostrarVistaPreviaIngreso();
 
     estadoActualFiltrado = 'Aceptada';
@@ -731,7 +726,12 @@ btnGuardar.addEventListener('click', async () => {
         await guardarOrdenManual();
     } catch (err) {
         console.error(err);
-        alert('No se pudo guardar la orden: ' + (err.message || err));
+        const msg = String(err && (err.message || err.name || err));
+        if (msg.toLowerCase().includes('quota') || msg.toLowerCase().includes('insufficient')) {
+            alert('No se pudo guardar: el almacenamiento del navegador esta lleno. Te conviene exportar respaldo y liberar espacio del navegador.');
+            return;
+        }
+        alert('No se pudo guardar la orden: ' + msg);
     }
 });
 
@@ -784,4 +784,6 @@ fileInput.addEventListener('change', async (e) => {
 buscar.addEventListener('input', () => dibujarLista());
 btnRefrescar.addEventListener('click', () => fetchAndRender());
 
+intentarPersistenciaStorage();
 fetchAndRender();
+

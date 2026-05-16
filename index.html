@@ -3,15 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MyB Electrónica - Gestión (Supabase)</title>
+    <title>MyB Electrónica - Gestión local</title>
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
 <div class="contenedor">
-    <h2>MyB Electrónica - Gestión de Reparaciones (Cloud)</h2>
+    <h2>MyB Electrónica - Gestión de Reparaciones</h2>
 
     <div class="respaldo-bar">
-        <button class="btn-respaldo" id="btn-config">⚙️ Configurar Supabase</button>
         <button class="btn-respaldo" id="btn-export">📥 Exportar JSON</button>
         <button class="btn-respaldo" id="btn-import">📂 Importar JSON</button>
         <input type="file" id="fileInput" style="display:none">
@@ -52,21 +51,6 @@
 
     <h3>📋 Órdenes</h3>
     <div id="listaReparaciones"></div>
-</div>
-
-<!-- Config modal -->
-<div id="configModal" class="modal">
-    <div class="modal-content">
-        <h3>Configuración Supabase</h3>
-        <p>Ingresá tu `SUPABASE_URL` y `SUPABASE_ANON_KEY` (protegélas si es público).</p>
-        <input id="cfg_url" placeholder="https://xxxx.supabase.co" />
-        <input id="cfg_key" placeholder="ANON_KEY..." />
-        <div style="display:flex; gap:8px; margin-top:8px;">
-            <button id="saveCfg" class="btn-respaldo">Guardar</button>
-            <button id="closeCfg" class="btn-respaldo">Cerrar</button>
-        </div>
-        <p style="font-size:12px; color:#666; margin-top:8px;">Nota: Para producción usar funciones server-side o env variables.</p>
-    </div>
 </div>
 
 <script type="module" src="app.js"></script>

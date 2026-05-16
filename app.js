@@ -1,3 +1,6 @@
+// Esta app funciona localmente con IndexedDB a través de datastore.js.
+// El código hoy guarda órdenes y fotos en el navegador sin conexión.
+// En el futuro, podés reemplazar datastore.js por un adapter remoto (Supabase/U otra DB).
 import datastore from './datastore.js';
 
 const lista = document.getElementById('listaReparaciones');

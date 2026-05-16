@@ -1,0 +1,33 @@
+body { font-family: Arial, sans-serif; margin: 20px; background-color: #f0f2f5; color: #333; }
+.contenedor { max-width: 900px; margin: auto; }
+h2, h3 { text-align: center; color: #1a252f; }
+.panel-ingreso { background: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 25px; }
+.fila-input { display: flex; gap: 10px; }
+input { flex: 1; padding: 10px; margin: 6px 0; border-radius: 6px; border: 1px solid #cccccc; box-sizing: border-box; font-size: 14px; }
+.btn-guardar-fijo { width: 100%; padding: 14px; margin-top: 10px; border-radius: 6px; border: none; font-weight: bold; cursor: pointer; font-size: 16px; background-color: #2b8a3e; color: white; display: block; text-align: center; }
+.btn-guardar-fijo:hover { background-color: #237032; }
+.pestanas { display: flex; gap: 4px; margin-bottom: 15px; background: #e0e0e0; padding: 5px; border-radius: 8px; flex-wrap: wrap; }
+.tab-btn { flex: 1; min-width: 120px; padding: 10px 2px; font-size: 12px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; background: transparent; color: #555; text-align: center; }
+.tab-btn.activo { background: white; color: #1a252f; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+.contador { background: #6c757d; color: white; padding: 2px 6px; border-radius: 10px; font-size: 11px; margin-left: 3px; }
+.registro { background: white; padding: 18px; margin-top: 12px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); border-left: 6px solid #ccc; font-weight: bold; }
+.registro p { margin: 6px 0; font-size: 14px; line-height: 1.4; }
+.cliente { font-size: 16px; font-weight: bold; color: #2c3e50; border-bottom: 1px solid #eee; padding-bottom: 5px; display: flex; justify-content: space-between; }
+.num-orden { background-color: #34495e; color: white; padding: 2px 8px; border-radius: 4px; font-size: 12px; font-weight: bold; }
+.dato-resaltado { text-transform: uppercase; }
+.acciones { margin-top: 15px; display: flex; gap: 6px; flex-wrap: wrap; padding-top: 10px; border-top: 1px dashed #ddd; width: 100%; }
+.btn-flujo { padding: 8px 14px; font-size: 13px; border-radius: 5px; border: none; cursor: pointer; font-weight: bold; color: white; }
+.btn-whatsapp { background-color: #25d366; color: white; padding: 8px 14px; font-size: 13px; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; }
+.btn-whatsapp:hover { background-color: #1ebd59; }
+.btn-borrar { background-color: #e74c3c; color: white; margin-left: auto; padding: 8px 14px; font-size: 13px; border: none; border-radius: 5px; cursor: pointer; }
+.respaldo-bar { display: flex; gap: 10px; margin-bottom: 20px; justify-content: center; }
+.btn-respaldo { padding: 8px 15px; font-size: 12px; border-radius: 5px; border: 1px solid #ccc; cursor: pointer; background: #fff; font-weight: bold; }
+.txt-presupuesto { background-color: #f4ecf7; padding: 10px; border-radius: 6px; border: 1px solid #d2b4de; color: #6c3483; margin: 8px 0; font-size: 14px; }
+.txt-rechazado { background-color: #fce4d6; padding: 10px; border-radius: 6px; border: 1px solid #f4b084; color: #c65911; margin: 8px 0; font-size: 14px; }
+.txt-entregado { background-color: #e8f8f5; padding: 10px; border-radius: 6px; border: 1px solid #a3e4d7; color: #117a65; margin: 8px 0; font-size: 14px; }
+.galeria-fotos { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; background: #f8f9fa; padding: 8px; border-radius: 6px; border: 1px dashed #ccc; }
+.foto-contenedor { position: relative; width: 80px; height: 80px; }
+.foto-miniatura { width: 100%; height: 100%; object-fit: cover; border-radius: 4px; border: 2px solid #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.2); cursor: pointer; }
+.modal { position:fixed; inset:0; display:flex; align-items:center; justify-content:center; background:rgba(0,0,0,0.6); }
+.modal-contenido { background:#fff; padding:12px; border-radius:8px; max-width:90%; max-height:90%; display:flex; flex-direction:column; gap:8px; }
+.modal-contenido img { max-width:100%; max-height:70vh; object-fit:contain; }

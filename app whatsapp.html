@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestión de Reparaciones V25</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background-color: #f0f2f5; color: #333; }
+        .contenedor { max-width: 750px; margin: auto; }
+        h2, h3 { text-align: center; color: #1a252f; }
+        .panel-ingreso { background: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 25px; }
+        .fila-input { display: flex; gap: 10px; }
+        input { flex: 1; padding: 10px; margin: 6px 0; border-radius: 6px; border: 1px solid #cccccc; box-sizing: border-box; font-size: 14px; width: 100%; }
+        
+        .btn-guardar-fijo { width: 100%; padding: 14px; margin-top: 10px; border-radius: 6px; border: none; font-weight: bold; cursor: pointer; font-size: 16px; background-color: #2b8a3e; color: white; display: block; text-align: center; }
+        .btn-guardar-fijo:hover { background-color: #237032; }
+        
+        .pestanas { display: flex; gap: 4px; margin-bottom: 15px; background: #e0e0e0; padding: 5px; border-radius: 8px; flex-wrap: wrap; }
+        .tab-btn { flex: 1; min-width: 120px; padding: 10px 2px; font-size: 12px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; background: transparent; color: #555; text-align: center; }
+        .tab-btn.activo { background: white; color: #1a252f; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        
+        .contador { background: #6c757d; color: white; padding: 2px 6px; border-radius: 10px; font-size: 11px; margin-left: 3px; }
+        .activo .contador { background: #1a252f; }
+
+        .registro { background: white; padding: 18px; margin-top: 12px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); border-left: 6px solid #ccc; font-weight: bold; }
+        .registro p { margin: 6px 0; font-size: 14px; line-height: 1.4; }
+        
+        .cliente { font-size: 16px; font-weight: bold; color: #2c3e50; border-bottom: 1px solid #eee; padding-bottom: 5px; display: flex; justify-content: space-between; }
+        .num-orden { background-color: #34495e; color: white; padding: 2px 8px; border-radius: 4px; font-size: 12px; font-weight: bold; }
+        .dato-resaltado { text-transform: uppercase; }
+        
+        .borde-Aceptada { border-left-color: #3498db; }
+        .borde-Presupuestada { border-left-color: #9b59b6; }
+        .borde-En-Reparacion { border-left-color: #f39c12; }
+        .borde-Terminada { border-left-color: #2ecc71; }
+        .borde-Archivada { border-left-color: #7f8c8d; opacity: 0.8; }
+        
+        .acciones { margin-top: 15px; display: flex; gap: 6px; flex-wrap: wrap; padding-top: 10px; border-top: 1px dashed #ddd; width: 100%; }
+        .btn-flujo { padding: 8px 14px; font-size: 13px; border-radius: 5px; border: none; cursor: pointer; font-weight: bold; color: white; }
+        
+        .btn-whatsapp { background-color: #25d366; color: white; padding: 8px 14px; font-size: 13px; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; }
+        .btn-whatsapp:hover { background-color: #1ebd59; }
+
+        .btn-borrar { background-color: #e74c3c; color: white; margin-left: auto; padding: 8px 14px; font-size: 13px; border: none; border-radius: 5px; cursor: pointer; }
+
+        .respaldo-bar { display: flex; gap: 10px; margin-bottom: 20px; justify-content: center; }
+        .btn-respaldo { padding: 8px 15px; font-size: 12px; border-radius: 5px; border: 1px solid #ccc; cursor: pointer; background: #fff; font-weight: bold; }
+        
+        .txt-presupuesto { background-color: #f4ecf7; padding: 10px; border-radius: 6px; border: 1px solid #d2b4de; color: #6c3483; margin: 8px 0; font-size: 14px; }
+        .txt-rechazado { background-color: #fce4d6; padding: 10px; border-radius: 6px; border: 1px solid #f4b084; color: #c65911; margin: 8px 0; font-size: 14px; }
+        .txt-entregado { background-color: #e8f8f5; padding: 10px; border-radius: 6px; border: 1px solid #a3e4d7; color: #117a65; margin: 8px 0; font-size: 14px; }
+        
+        .galeria-fotos { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; background: #f8f9fa; padding: 8px; border-radius: 6px; border: 1px dashed #ccc; }
+        .foto-contenedor { position: relative; width: 80px; height: 80px; }
+        .foto-miniatura { width: 100%; height: 100%; object-fit: cover; border-radius: 4px; border: 2px solid #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.2); cursor: pointer; }
+    </style>
+</head>
+<body>
+
+<div class="contenedor">
+    <h2> MyB Electrónica - Gestión de Reparaciones</h2>
+    
+    <div class="respaldo-bar">
+        <button class="btn-respaldo" onclick="descargarBaseDatos()">💾 Guardar Archivo (Backup)</button>
+        <button class="btn-respaldo" onclick="document.getElementById('fileInput').click()">📂 Cargar Archivo desde PC/Celular</button>
+        <input type="file" id="fileInput" style="display:none" onchange="cargarBaseDatos(event)">
+    </div>
+
+    <!-- PANEL DE INGRESO: Mantiene el casillero de fotos fijo acá -->
+    <div class="panel-ingreso">
+        <div class="fila-input">
+            <input type="text" id="nombre" placeholder="Nombre del cliente">
+            <input type="text" id="apellido" placeholder="Apellido del cliente">
+        </div>
+        <input type="text" id="telefono" placeholder="Número de Teléfono (Ej: 1122334455 sin 0 ni 15)">
+        <div class="fila-input">
+            <input type="text" id="marca" placeholder="Marca (Ej: Samsung, Motorola)">
+            <input type="text" id="modelo" placeholder="Modelo (Ej: A54, Moto Edge)">
+        </div>
+        <input type="text" id="serie" placeholder="Número de Serie / IMEI (Opcional)">
+        <input type="text" id="falla" placeholder="Falla reportada / Síntomas iniciales">
+        
+        <!-- Cámara en vivo al cargar orden -->
+        <button type="button" class="btn-flujo" style="background-color: #7f8c8d; width: 100%; margin: 8px 0; padding: 10px;" onclick="document.getElementById('fotoInputIngreso').click()">📷 SACAR FOTO AL APARATO (CÁMARA EN VIVO)</button>
+        <input type="file" id="fotoInputIngreso" accept="image/*" capture="environment" multiple style="display:none;">
+        <div id="vistaPreviaIngreso" class="galeria-fotos" style="display:none;"></div>
+
+        <button type="button" class="btn-guardar-fijo" onclick="guardarOrdenManual()">➕ AGREGAR NUEVA ORDEN</button>
+    </div>
+
+    <h3>📋 Órdenes de Trabajo</h3>
+    
+    <div class="pestanas">
+        <button id="tab-aceptada" class="tab-btn activo" onclick="filtrarPor('Aceptada')">Aceptadas <span class="contador" id="cant-aceptada">0</span></button>
+        <button id="tab-presupuesta" class="tab-btn" onclick="filtrarPor('Presupuestada')">Presupuestadas <span class="contador" id="cant-presupuesto">0</span></button>
+        <button id="tab-taller" class="tab-btn" onclick="filtrarPor('En Reparación')">En Taller <span class="contador" id="cant-taller">0</span></button>
+        <button id="tab-terminada" class="tab-btn" onclick="filtrarPor('Terminada')">Sacadas/Terminadas <span class="contador" id="cant-terminada">0</span></button>
+        <button id="tab-archivada" class="tab-btn" onclick="filtrarPor('Archivada')">📦 Archivadas <span class="contador" id="cant-archivada">0</span></button>
+    </div>
+
+    <div id="listaReparaciones"></div>
+</div>
+
+<script>
+    var lista = document.getElementById('listaReparaciones');
+    var fotoInputIngreso = document.getElementById('fotoInputIngreso');
+    var vistaPreviaIngreso = document.getElementById('vistaPreviaIngreso');
+    
+    var reparaciones = [];
+    var fotosTemporalesIngreso = []; // Almacena las fotos del panel antes de guardar
+    var estadoActualFiltrado = 'Aceptada';
+    var proximoNumeroOrden = 1;
+
+    try {
+        var datos = localStorage.getItem('reparaciones_v25_fija');
+        if (datos) {
+            var parseados = JSON.parse(datos);
+            if (Array.isArray(parseados)) {
+                reparaciones = parseados;
+                var maxNum = 0;
+                for (var i = 0; i < reparaciones.length; i++) {
+                    if (reparaciones[i].idOrden > maxNum) maxNum = reparaciones[i].idOrden;
+                }
+                proximoNumeroOrden = maxNum + 1;
+            }
+        }
+    } catch (e) {
+        console.log("Memoria bloqueada.");
+    }
+
+    function formatearPrecioFijo(precioRaw) {
+        var limpio = precioRaw.toString().replace(/\D/g, "");
+        if(!limpio) return "0";
+        return Number(limpio).toLocaleString('es-AR');
+    }
+
+    function limpiarNumeroTelefonoFijo(telRaw) {
+        var num = telRaw.replace(/\D/g, "");
+        if (!num) return "";
+        if (num.indexOf("54") === 0) return num;
+        return "54" + num;
+    }
+
+    // MANEJADOR FOTOS EN INGRESO DE ORDEN
+    fotoInputIngreso.addEventListener('change', function(e) {
+        var archivos = e.target.files;
+        if(!archivos) return;
+        var procesados = 0;
+        for(var i=0; i<archivos.length; i++) {
+            var lector = new FileReader();
+            lector.onload = function(evt) {
+                fotosTemporalesIngreso.push(evt.target.result);
+                procesados++;
+                if(procesados === archivos.length) {
+                    mostrarVistaPreviaIngreso();
+                }
+            };
+            lector.readAsDataURL(archivos[i]);
+        }
+    });
+
+    function mostrarVistaPreviaIngreso() {
+        if(fotosTemporalesIngreso.length === 0) {
+            vistaPreviaIngreso.style.display = "none";
+            return;
+        }
+        vistaPreviaIngreso.style.display = "flex";
+        vistaPreviaIngreso.innerHTML = "";
+        for(var i=0; i<fotosTemporalesIngreso.length; i++) {
+            vistaPreviaIngreso.innerHTML += '<div class="foto-contenedor"><img src="'+fotosTemporalesIngreso[i]+'" class="foto-miniatura"></div>';
+        }
+    }
+
+    // FUNCIÓN FIJA PARA PANTALLA COMPLETA DE FOTOS EN VENTANA LIMPIA
+    window.verFotoGrandeFijo = function(base64Data) {
+        var ventanaFoto = window.open("");
+        ventanaFoto.document.write('<html><head><title>Visualizador MyB</title></head><body style="margin:0; background:#000; display:flex; justify-content:center; align-items:center; height:100vh;"><img src="' + base64Data + '" style="max-width:100%; max-height:100%; object-fit:contain;"></body></html>');
+    };
+
+    function actualizarContadores() {
+        var cAceptada = 0, cPresupuesto = 0, cTaller = 0, cTerminada = 0, cArchivada = 0;
+        for (var i = 0; i < reparaciones.length; i++) {
+            if (reparaciones[i].estado === 'Aceptada') cAceptada++;
+            if (reparaciones[i].estado === 'Presupuestada') cPresupuesto++;
+            if (reparaciones[i].estado === 'En Reparación') cTaller++;
+            if (reparaciones[i].estado === 'Terminada') cTerminada++;
+            if (reparaciones[i].estado === 'Archivada') cArchivada++;
+        }
+        document.getElementById('cant-aceptada').innerHTML = cAceptada;
+        document.getElementById('cant-presupuesto').innerHTML = cPresupuesto;
+        document.getElementById('cant-taller').innerHTML = cTaller;
+        document.getElementById('cant-terminada').innerHTML = cTerminada;
+        document.getElementById('cant-archivada').innerHTML = cArchivada;
+    }
+
+    function dibujarLista() {
+        try {
+            localStorage.setItem('reparaciones_v25_fija', JSON.stringify(reparaciones));
+        } catch(e){}
+
+        actualizarContadores();
+        lista.innerHTML = '';
+        var encontradas = 0;
+
+        for (var i = 0; i < reparaciones.length; i++) {
+            var rep = reparaciones[i];
+            
+            if (rep.estado === estadoActualFiltrado) {
+                encontradas++;
+                var div = document.createElement('div');
+                var claseBorde = rep.estado === 'En Reparación' ? 'En-Reparacion' : rep.estado;
+                div.className = 'registro borde-' + claseBorde;
+                
+                var nSerie = rep.serie ? '<p><b>🔢 S/N u IMEI:</b> <span class="dato-resaltado">' + rep.serie + '</span></p>' : '';
+
+                var bloquePresupuesto = '';
+                if (rep.estado === 'Archivada') {
+                    bloquePresupuesto = rep.fueReparado === false ? 
+                        '<div class="txt-entregado">📦 DEVUELTO AL CLIENTE SIN ARREGLO DE FORMA DEFINITIVA.</div>' : 
+                        '<div class="txt-entregado">📦 ENTREGADO AL CLIENTE Y COBRADO LA SUMA DE $' + rep.precioPresupuesto + '</div>';
+                } else if (rep.fueReparado === false) {
+                    bloquePresupuesto = '<div class="txt-rechazado">⚠️ NO REPARADO: EL CLIENTE RECHAZÓ EL PRESUPUESTO TÉCNICO. LISTO PARA DEVOLVER.</div>';
+                } else if (rep.detallePresupuesto || rep.precioPresupuesto) {
+                    bloquePresupuesto = '<div class="txt-presupuesto">' +
+                        '📋 <b>FALLA DETECTADA:</b> <span class="dato-resaltado">' + rep.detallePresupuesto + '</span><br>' +
+                        '💵 <b>COSTO DE REPARACIÓN:</b> <span class="dato-resaltado">$' + rep.precioPresupuesto + '</span>' +
+                        '</div>';
+                }
+
+                var bloqueFotos = '';
+                if(rep.fotos && rep.fotos.length > 0) {
+                    bloqueFotos = '<div class="galeria-fotos">';
+                    for(var f = 0; f < rep.fotos.length; f++) {
+                        bloqueFotos += '<div class="foto-contenedor"><img src="' + rep.fotos[f] + '" class="foto-miniatura" onclick="window.verFotoGrandeFijo(this.src)"></div>';
+                    }
+                    bloqueFotos += '</div>';
+                }
+
+                var botoneraFlujo = '';
+                if (rep.estado === 'Aceptada') {
+                    botoneraFlujo = '<button onclick="abrirCargaPresupuesto(' + i + ')" class="btn-flujo" style="background-color: #9b59b6;">📋 Presupuestar Equipo</button>';
+                } else if (rep.estado === 'Presupuestada') {
+                    botoneraFlujo = '<button onclick="cambiarEstadoConAviso(' + i + ', \'En Reparación\')" class="btn-flujo" style="background-color: #f39c12; margin-right: 5px;">📞 Cliente Aceptó (Ir a Taller)</button>' +
+                                    '<button onclick="rechazarPresupuestoFijo(' + i + ')" class="btn-flujo" style="background-color: #e67e22;">❌ Cliente NO Aceptó</button>';
+                } else if (rep.estado === 'En Reparación') {
+                    botoneraFlujo = '<button onclick="cambiarEstadoConAviso(' + i + ', \'Terminada\')" class="btn-flujo" style="background-color: #2ecc71;">✅ Trabajo Listo para Retirar</button>';
+                } else if (rep.estado === 'Terminada') {
+                    botoneraFlujo = '<button onclick="entregarEquipoFijo(' + i + ')" class="btn-flujo" style="background-color: #16a085;">📦 MARCAR COMO ENTREGADO Y COBRADO</button>';
+                } else if (rep.estado === 'Archivada') {
+                    botoneraFlujo = '<span style="color:#7f8c8d; font-size:13px; padding-top:6px;">📁 TRABAJO FINALIZADO Y GUARDADO EN HISTORIAL</span>';
+                }
+
+                div.innerHTML = 
+                    '<div class="cliente">👤 <span class="dato-resaltado">' + rep.apellido + ', ' + rep.nombre + '</span> <span class="num-orden">Orden N° ' + rep.idOrden + '</span></div>' +
+                    '<p><b>📞 TELÉFONO:</b> ' + (rep.telefono || 'No registrado') + '</p>' +
+                    '<p><b>⚙️ EQUIPO:</b> <span class="dato-resaltado">' + rep.marca + ' ' + rep.modelo + '</span></p>' +
+                    nSerie +
+                    '<p><b>🚨 PROBLEMA INICIAL:</b> <span class="dato-resaltado">' + rep.falla + '</span></p>' +
+                    bloquePresupuesto +
+                    bloqueFotos +
+                    '<div class="acciones">' +
+                        botoneraFlujo +
+                        '<button onclick="enviarWhatsAppDirecto(' + i + ')" class="btn-whatsapp">💬 Enviar WhatsApp</button>' +
+                        '<button onclick="eliminarOrden(' + i + ')" class="btn-borrar">🗑️ Eliminar</button>' +
+                    '</div>';
+                
+                lista.appendChild(div);
+            }
+        }
+
+        if (encontradas === 0) {
+            lista.innerHTML = '<p style="text-align:center; color:#7f8c8d; background: white; padding: 20px; border-radius: 8px;">No hay órdenes en la sección de "' + estadoActualFiltrado + '".</p>';
+        }
+    }
+
+    window.enviarWhatsAppDirecto = function(index) {
+        var rep = reparaciones[index];
+        if(!rep.telefono) return;
+
+        var numLimpio = limpiarNumeroTelefonoFijo(rep.telefono);
+        var textoMensaje = "";
+
+        if (rep.estado === 'Aceptada') {
+            textoMensaje = "Hola *" + rep.nombre + "*, nos comunicamos desde el Servicio Técnico *MyB Electrónica*. Tu equipo *" + rep.marca + " " + rep.modelo + "* ya fue ingresado correctamente bajo la orden de trabajo *N° " + rep.idOrden + "*. Queda a la espera de revisión técnico-diagnóstica.";
+        } 
+        else if (rep.estado === 'Presupuestada') {
+            textoMensaje = "Hola *" + rep.nombre + "*, nos comunicamos desde el Servicio Técnico *MyB Electrónica*. Te adjuntamos el presupuesto para tu equipo *" + rep.marca + " " + rep.modelo + "* bajo la orden de trabajo *N° " + rep.idOrden + "*.\n\n🛠️ Falla: *" + rep.detallePresupuesto + "*\n💵 Costo: *$" + rep.precioPresupuesto + "*\n\nPor favor, confirmanos si aprobás el presupuesto.";
+        } 
+        else if (rep.estado === 'En Reparación') {
+            textoMensaje = "Hola *" + rep.nombre + "*, nos comunicamos desde el Servicio Técnico *MyB Electrónica*. Te informamos que el presupuesto de *$" + rep.precioPresupuesto + "* fue aprobado y tu equipo *" + rep.marca + " " + rep.modelo + "* bajo la orden de trabajo *N° " + rep.idOrden + "* ya se encuentra en proceso de reparación.";
+        } 
+        else if (rep.estado === 'Terminada' || rep.estado === 'Archivada') {
+            if (rep.fueReparado === false) {
+                textoMensaje = "Hola *" + rep.nombre + "*, nos comunicamos desde el Servicio Técnico *MyB Electrónica*. Te informamos que podés pasar a retirar tu equipo *" + rep.marca + " " + rep.modelo + "* bajo la orden de trabajo *N° " + rep.idOrden + "* que quedó devuelto sin arreglo.";
+            } else {
+                textoMensaje = "Hola *" + rep.nombre + "*, nos comunicamos desde el Servicio Técnico *MyB Electrónica*. El trabajo de tu equipo *" + rep.marca + " " + rep.modelo + "* bajo la orden de trabajo *N° " + rep.idOrden + " * ya está listo. El costo de la reparación es de *$" + rep.precioPresupuesto + "*. Podés pasar a retirarlo cuando gustes.";
+            }
+        }
+
+        var urlNativa = "whatsapp://send?phone=" + numLimpio + "&text=" + encodeURIComponent(textoMensaje);
+        window.location.href = urlNativa;
+    };
+
+    window.cambiarEstadoConAviso = function(index, nuevoEstado) {
+        reparaciones[index].estado = nuevoEstado;
+        filtrarPor(nuevoEstado);
+        window.enviarWhatsAppDirecto(index);
+    };
+
+    window.entregarEquipoFijo = function(index) {
+        var rep = reparaciones[index];
+        if (confirm('¿Confirmás que el cliente pagó y retiró el equipo? Viajará a la pestaña de Archivadas.')) {
+            reparaciones[index].estado = 'Archivada';
+            if (rep.telefono) {
+                var numLimpio = limpiarNumeroTelefonoFijo(rep.telefono);
+                var textoCierre = rep.fueReparado === false ? 
+                    "Hola *" + rep.nombre + "*, te confirmamos que tu equipo *" + rep.marca + " " + rep.modelo + "* bajo la orden de trabajo *N° " + rep.idOrden + "* fue retirado de nuestro local (Devuelto sin arreglo). ¡Muchas gracias por confiar en *MyB Electrónica*!" :
+                    "Hola *" + rep.nombre + "*, te confirmamos que tu equipo *" + rep.marca + " " + rep.modelo + "* bajo la orden de trabajo *N° " + rep.idOrden + "* fue entregado y cobrado correctamente la suma de *$" + rep.precioPresupuesto + "*. ¡Muchas gracias por confiar en *MyB Electrónica*!";
+
+                var urlCierre = "whatsapp://send?phone=" + numLimpio + "&text=" + encodeURIComponent(textoCierre);
+                filtrarPor('Terminada');
+                window.location.href = urlCierre;
+            } else {
+                filtrarPor('Terminada');
+            }
+        }
+    };
+
+    window.abrirCargaPresupuesto = function(index) {
+        var detalle = prompt("¿Cuál es la falla real que encontraste en el diagnóstico técnico?", reparaciones[index].detallePresupuesto || "");
+        if (detalle === null) return;
+        var precioInput = prompt("¿Cuál es el costo/precio final de esta reparación? (No importa si no ponés los puntos)", reparaciones[index].precioPresupuesto || "");
+        if (precioInput === null) return;
+
+        reparaciones[index].detallePresupuesto = detalle.trim().toUpperCase();
+        reparaciones[index].precioPresupuesto = formatearPrecioFijo(precioInput);
+        reparaciones[index].fueReparado = true;
+        reparaciones[index].estado = 'Presupuestada';
+        
+        filtrarPor('Presupuestada');
+        window.enviarWhatsAppDirecto(index);
+    };
+
+    window.rechazarPresupuestoFijo = function(index) {
+        if (confirm('¿Marcar este equipo como rechazado por el cliente? Se enviará a terminadas sin costo y disparará el aviso.')) {
+            reparaciones[index].fueReparado = false;
+            reparaciones[index].precioPresupuesto = '0';
+            reparaciones[index].estado = 'Terminada';
+            filtrarPor('Terminada');
+            window.enviarWhatsAppDirecto(index);
+        }
+    };
+
+    window.guardarOrdenManual = function() {
+        var nom = document.getElementById('nombre').value.trim();
+        var ape = document.getElementById('apellido').value.trim();
+        var tel = document.getElementById('telefono').value.trim();
+        var mar = document.getElementById('marca').value.trim();
+        var mod = document.getElementById('modelo').value.trim();
+        var ser = document.getElementById('serie').value.trim();
+        var fal = document.getElementById('falla').value.trim();
+
+        if(!nom || !ape || !mar || !mod || !fal) {
+            alert("Por favor, completa los campos obligatorios para ingresar el equipo.");
+            return;
+        }
+
+        var nuevaOrden = {
+            idOrden: proximoNumeroOrden,
+            nombre: nom.toUpperCase(),
+            apellido: ape.toUpperCase(),
+            telefono: tel,
+            marca: mar.toUpperCase(),
+            modelo: mod.toUpperCase(),
+            serie: ser.toUpperCase(),
+            falla: fal.toUpperCase(),
+            estado: 'Aceptada',
+            detallePresupuesto: '',
+            precioPresupuesto: '',
+            fueReparado: true,
+            fotos: fotosTemporalesIngreso // Traspasa las fotos guardadas en vivo
+        };
+        
+        reparaciones.push(nuevaOrden);
+        proximoNumeroOrden++;
+        
+        // Limpieza de campos
+        document.getElementById('nombre').value = '';
+        document.getElementById('apellido').value = '';
+        document.getElementById('telefono').value = '';
+        document.getElementById('marca').value = '';
+        document.getElementById('modelo').value = '';
+        document.getElementById('serie').value = '';
+        document.getElementById('falla').value = '';
+        
+        fotosTemporalesIngreso = []; // Vuelca la papelera temporal
+        vistaPreviaIngreso.style.display = "none";
+        
+        filtrarPor('Aceptada');
+        window.enviarWhatsAppDirecto(reparaciones.length - 1);
+    };
+
+    window.filtrarPor = function(estado) {
+        estadoActualFiltrado = estado;
+        document.querySelectorAll('.tab-btn').forEach(function(btn) {
+            btn.classList.remove('activo');
+        });
+        
+        if(estado === 'Aceptada') document.getElementById('tab-aceptada').classList.add('activo');
+        if(estado === 'Presupuestada') document.getElementById('tab-presupuesta').classList.add('activo');
+        if(estado === 'En Reparación') document.getElementById('tab-taller').classList.add('activo');
+        if(estado === 'Terminada') document.getElementById('tab-terminada').classList.add('activo');
+        if(estado === 'Archivada') document.getElementById('tab-archivada').classList.add('activo');
+        
+        dibujarLista();
+    };
+
+    window.cambiarEstado = function(index, nuevoEstado) {
+        reparaciones[index].estado = nuevoEstado;
+        filtrarPor(nuevoEstado);
+    };
+
+    window.eliminarOrden = function(index) {
+        if (confirm('¿Estás seguro de borrar este registro de forma permanente?')) {
+            reparaciones.splice(index, 1);
+            dibujarLista();
+        }
+    };
+
+    window.descargarBaseDatos = function() {
+        if(reparaciones.length === 0) {
+            alert("No hay datos para exportar.");
+            return;
+        }
+        var dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(reparaciones));
+        var downloadAnchor = document.createElement('a');
+        downloadAnchor.setAttribute("href", dataStr);
+        downloadAnchor.setAttribute("download", "respaldo_reparaciones.json");
+        document.body.appendChild(downloadAnchor);
+        downloadAnchor.click();
+        downloadAnchor.remove();
+    };
+
+    window.cargarBaseDatos = function(event) {
+        var reader = new FileReader();
+        reader.onload = function(e) {
+            try {
+                var pasados = JSON.parse(e.target.result);
+                if (Array.isArray(pasados)) {
+                    reparaciones = pasados;
+                    var maxNum = 0;
+                    for (var i = 0; i < reparaciones.length; i++) {
+                        if (reparaciones[i].idOrden > maxNum) maxNum = reparaciones[i].idOrden;
+                    }
+                    proximoNumeroOrden = maxNum + 1;
+                    filtrarPor('Aceptada');
+                    alert('¡Tus órdenes cargaron correctamente!');
+                }
+            } catch(err) {
+                alert('Archivo corrupto o no válido.');
+            }
+        };
+        reader.readAsText(event.target.files);
+    };
+
+    dibujarLista();
+</script>
+
+</body>
+</html>

@@ -52,6 +52,9 @@ let panStartY = 0;
 let panStartTranslateX = 0;
 let panStartTranslateY = 0;
 let isPinching = false;
+let lastTapTime = 0;
+let lastTapX = 0;
+let lastTapY = 0;
 
 btnTomarFotos.addEventListener('click', () => fotoInput.click());
 
@@ -489,6 +492,29 @@ viewerImage.addEventListener('touchend', (event) => {
         }
         return;
     }
+
+    const now = Date.now();
+    const tapX = event.changedTouches[0].clientX;
+    const tapY = event.changedTouches[0].clientY;
+    const dt = now - lastTapTime;
+    const distTap = Math.hypot(tapX - lastTapX, tapY - lastTapY);
+
+    if (dt > 0 && dt < 300 && distTap < 25) {
+        if (viewerScale > 1) {
+            resetViewerTransform();
+        } else {
+            viewerScale = 2.5;
+            viewerTranslateX = 0;
+            viewerTranslateY = 0;
+            applyViewerTransform();
+        }
+        lastTapTime = 0;
+        return;
+    }
+
+    lastTapTime = now;
+    lastTapX = tapX;
+    lastTapY = tapY;
 
     if (viewerScale > 1) return;
 

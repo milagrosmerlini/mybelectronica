@@ -26,6 +26,7 @@ const btnAgregarItem = document.getElementById('btn-agregar-item');
 const btnRegistrarVenta = document.getElementById('btn-registrar-venta');
 const tablaItemsBody = document.getElementById('tabla-items-body');
 const tablaTotalGeneralValor = document.getElementById('tabla-total-general-valor');
+const ventaTotalFinal = document.getElementById('venta-total-final');
 const totalCobrarNegocio = document.getElementById('total-cobrar-negocio');
 const totalCajaNegocio = document.getElementById('total-caja-negocio');
 const totalCajaReparaciones = document.getElementById('total-caja-reparaciones');
@@ -87,8 +88,9 @@ let cajaState = {
 };
 let catalogoArticulos = [];
 const CATALOGO_ARTICULOS_URL = './articulos-nombres.json?v=20260519-menu11';
-const OPCIONES_BASE_DESCRIPCION = ['CONSUMIDOR FINAL', '+AGREGAR DESCRIPCIÓN'];
+const OPCIONES_BASE_DESCRIPCION = ['Consumidor final', '+Agregar descripción'];
 let itemsVentaActual = [];
+let totalVentaManualOverride = null;
 const cajaVista = {
     negocio: { mostrarTodosLosDias: false, diaSeleccionado: null },
     reparaciones: { mostrarTodosLosDias: false, diaSeleccionado: null }
@@ -257,12 +259,31 @@ function totalItemsVenta() {
     return itemsVentaActual.reduce((acc, it) => acc + ((it.cantidad || 0) * (it.precioUnitario || 0)), 0);
 }
 
+function totalFinalVenta() {
+    if (Number.isFinite(totalVentaManualOverride) && totalVentaManualOverride > 0) {
+        return totalVentaManualOverride;
+    }
+    return totalItemsVenta();
+}
+
+function actualizarInputTotalFinal() {
+    if (!ventaTotalFinal) return;
+
+    const auto = totalItemsVenta();
+    const total = totalFinalVenta();
+    const mostrar = total || auto;
+
+    if (document.activeElement === ventaTotalFinal) return;
+    ventaTotalFinal.value = mostrar ? formatearNumeroEntero(mostrar) : '0';
+}
+
 function dibujarTablaItemsVenta() {
     if (!tablaItemsBody) return;
 
     if (!itemsVentaActual.length) {
         tablaItemsBody.innerHTML = '<tr class="tabla-items-vacio"><td colspan="4">Todavia no agregaste items.</td></tr>';
         if (tablaTotalGeneralValor) tablaTotalGeneralValor.textContent = '0';
+        actualizarInputTotalFinal();
         return;
     }
 
@@ -281,6 +302,7 @@ function dibujarTablaItemsVenta() {
         .join('');
 
     if (tablaTotalGeneralValor) tablaTotalGeneralValor.textContent = formatearNumeroEntero(totalItemsVenta());
+    actualizarInputTotalFinal();
 }
 
 function limpiarCamposItemVenta() {
@@ -297,7 +319,7 @@ function intentarConstruirItemDesdeInputs() {
     if (!precioUnitario) return null;
 
     const cantidad = cantidadInput || 1;
-    const descripcion = descripcionInput || 'CONSUMIDOR FINAL';
+    const descripcion = descripcionInput || 'Consumidor final';
     return { cantidad, descripcion, precioUnitario };
 }
 
@@ -410,7 +432,7 @@ function actualizarSugerenciasDescripcion() {
             if ((starts.length + contains.length) >= maxSugerencias) break;
         }
         opciones = starts.concat(contains).slice(0, maxSugerencias);
-        if (!opciones.length) opciones = ['+AGREGAR DESCRIPCIÓN'];
+        if (!opciones.length) opciones = ['+Agregar descripción'];
     }
 
     listaArticulos.innerHTML = '';
@@ -421,7 +443,7 @@ function actualizarSugerenciasDescripcion() {
         item.textContent = op;
         item.addEventListener('mousedown', (event) => event.preventDefault());
         item.addEventListener('click', () => {
-            if (op === '+AGREGAR DESCRIPCIÓN') {
+            if (op === '+Agregar descripción') {
                 ventaDescripcion.value = '';
                 ventaDescripcion.focus();
                 actualizarSugerenciasDescripcion();
@@ -1207,6 +1229,18 @@ ventaImporte.addEventListener('input', () => {
     ventaImporte.value = n ? formatearNumeroEntero(n) : '';
 });
 
+if (ventaTotalFinal) {
+    ventaTotalFinal.addEventListener('input', () => {
+        const n = limpiarImporteEntero(ventaTotalFinal.value);
+        totalVentaManualOverride = n > 0 ? n : null;
+        ventaTotalFinal.value = n ? formatearNumeroEntero(n) : '';
+    });
+
+    ventaTotalFinal.addEventListener('blur', () => {
+        actualizarInputTotalFinal();
+    });
+}
+
 btnAgregarItem.addEventListener('click', () => {
     agregarItemDesdeInputs();
 });
@@ -1223,7 +1257,7 @@ btnRegistrarVenta.addEventListener('click', async () => {
         return;
     }
 
-    const importe = totalItemsVenta();
+    const importe = totalFinalVenta();
     const descripcion = itemsVentaActual
         .map((it) => `${it.cantidad}x ${it.descripcion}`)
         .join(' | ');
@@ -1236,6 +1270,7 @@ btnRegistrarVenta.addEventListener('click', async () => {
     });
 
     itemsVentaActual = [];
+    totalVentaManualOverride = null;
     limpiarCamposItemVenta();
     dibujarTablaItemsVenta();
     listaArticulos.classList.add('hidden');

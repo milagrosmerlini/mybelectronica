@@ -1,4 +1,4 @@
-import datastore from './datastore.js?v=20260519-cloud4';
+ï»¿import datastore from './datastore.js?v=20260519-cloud5';
 
 const lista = document.getElementById('listaReparaciones');
 const fotoInput = document.getElementById('fotoInput');
@@ -89,7 +89,7 @@ let cajaState = {
 };
 let catalogoArticulos = [];
 const CATALOGO_ARTICULOS_URL = './articulos-nombres.json?v=20260519-menu11';
-const OPCIONES_BASE_DESCRIPCION = ['Consumidor final', '+Agregar descripción'];
+const OPCIONES_BASE_DESCRIPCION = ['Consumidor final', '+Agregar descripciÃ³n'];
 let itemsVentaActual = [];
 let totalVentaManualOverride = null;
 const cajaVista = {
@@ -97,8 +97,177 @@ const cajaVista = {
     reparaciones: { mostrarTodosLosDias: false, diaSeleccionado: null }
 };
 
+function createIconSvg(paths) {
+    const ns = 'http://www.w3.org/2000/svg';
+    const svg = document.createElementNS(ns, 'svg');
+    svg.setAttribute('viewBox', '0 0 24 24');
+    svg.setAttribute('aria-hidden', 'true');
+    svg.setAttribute('focusable', 'false');
+    for (const d of paths) {
+        const path = document.createElementNS(ns, 'path');
+        path.setAttribute('d', d);
+        svg.appendChild(path);
+    }
+    return svg;
+}
+
 function obtenerMensajeError(err) {
     return String(err && (err.message || err.name || err) || 'Error desconocido.');
+}
+
+let dialogQueue = Promise.resolve();
+
+function enqueueDialog(task) {
+    const run = dialogQueue.then(() => task());
+    dialogQueue = run.catch(() => {});
+    return run;
+}
+
+function createDialogElements({ title, message, showInput, defaultValue, okText, cancelText, danger }) {
+    const backdrop = document.createElement('div');
+    backdrop.className = 'app-dialog-backdrop';
+
+    const dialog = document.createElement('div');
+    dialog.className = 'app-dialog';
+    dialog.setAttribute('role', 'dialog');
+    dialog.setAttribute('aria-modal', 'true');
+
+    const titleEl = document.createElement('h3');
+    titleEl.className = 'app-dialog-title';
+    titleEl.textContent = title;
+
+    const messageEl = document.createElement('p');
+    messageEl.className = 'app-dialog-message';
+    messageEl.textContent = message;
+
+    const inputEl = document.createElement('input');
+    inputEl.className = 'app-dialog-input';
+    inputEl.type = 'text';
+    inputEl.value = defaultValue || '';
+
+    const actions = document.createElement('div');
+    actions.className = 'app-dialog-actions';
+
+    const cancelBtn = document.createElement('button');
+    cancelBtn.type = 'button';
+    cancelBtn.className = 'app-dialog-btn app-dialog-btn-cancel';
+    cancelBtn.textContent = cancelText || 'Cancelar';
+
+    const okBtn = document.createElement('button');
+    okBtn.type = 'button';
+    okBtn.className = `app-dialog-btn ${danger ? 'app-dialog-btn-danger' : 'app-dialog-btn-ok'}`;
+    okBtn.textContent = okText || 'Aceptar';
+
+    dialog.appendChild(titleEl);
+    dialog.appendChild(messageEl);
+    if (showInput) dialog.appendChild(inputEl);
+    if (cancelText) actions.appendChild(cancelBtn);
+    actions.appendChild(okBtn);
+    dialog.appendChild(actions);
+    backdrop.appendChild(dialog);
+
+    return { backdrop, dialog, inputEl, okBtn, cancelBtn };
+}
+
+function uiAlert(message, options = {}) {
+    return enqueueDialog(() => new Promise((resolve) => {
+        const { backdrop, dialog, okBtn } = createDialogElements({
+            title: options.title || 'Aviso',
+            message: String(message || ''),
+            showInput: false,
+            defaultValue: '',
+            okText: options.okText || 'Entendido',
+            cancelText: '',
+            danger: false
+        });
+
+        const close = () => {
+            document.removeEventListener('keydown', onKeyDown);
+            backdrop.remove();
+            resolve(true);
+        };
+
+        const onKeyDown = (event) => {
+            if (event.key === 'Escape' || event.key === 'Enter') close();
+        };
+
+        okBtn.addEventListener('click', close);
+        backdrop.addEventListener('click', (event) => {
+            if (event.target === backdrop) close();
+        });
+        document.addEventListener('keydown', onKeyDown);
+        document.body.appendChild(backdrop);
+        okBtn.focus();
+    }));
+}
+
+function uiConfirm(message, options = {}) {
+    return enqueueDialog(() => new Promise((resolve) => {
+        const { backdrop, okBtn, cancelBtn } = createDialogElements({
+            title: options.title || 'Confirmar',
+            message: String(message || ''),
+            showInput: false,
+            defaultValue: '',
+            okText: options.okText || 'Aceptar',
+            cancelText: options.cancelText || 'Cancelar',
+            danger: Boolean(options.danger)
+        });
+
+        const close = (value) => {
+            document.removeEventListener('keydown', onKeyDown);
+            backdrop.remove();
+            resolve(value);
+        };
+
+        const onKeyDown = (event) => {
+            if (event.key === 'Escape') close(false);
+            if (event.key === 'Enter') close(true);
+        };
+
+        okBtn.addEventListener('click', () => close(true));
+        cancelBtn.addEventListener('click', () => close(false));
+        backdrop.addEventListener('click', (event) => {
+            if (event.target === backdrop) close(false);
+        });
+        document.addEventListener('keydown', onKeyDown);
+        document.body.appendChild(backdrop);
+        okBtn.focus();
+    }));
+}
+
+function uiPrompt(message, defaultValue = '', options = {}) {
+    return enqueueDialog(() => new Promise((resolve) => {
+        const { backdrop, inputEl, okBtn, cancelBtn } = createDialogElements({
+            title: options.title || 'Ingresar dato',
+            message: String(message || ''),
+            showInput: true,
+            defaultValue: String(defaultValue || ''),
+            okText: options.okText || 'Guardar',
+            cancelText: options.cancelText || 'Cancelar',
+            danger: false
+        });
+
+        const close = (value) => {
+            document.removeEventListener('keydown', onKeyDown);
+            backdrop.remove();
+            resolve(value);
+        };
+
+        const onKeyDown = (event) => {
+            if (event.key === 'Escape') close(null);
+            if (event.key === 'Enter') close(inputEl.value);
+        };
+
+        okBtn.addEventListener('click', () => close(inputEl.value));
+        cancelBtn.addEventListener('click', () => close(null));
+        backdrop.addEventListener('click', (event) => {
+            if (event.target === backdrop) close(null);
+        });
+        document.addEventListener('keydown', onKeyDown);
+        document.body.appendChild(backdrop);
+        inputEl.focus();
+        inputEl.select();
+    }));
 }
 
 function actualizarIndicadorOrigenDatos() {
@@ -124,7 +293,7 @@ async function fetchAndRenderSafe(contexto = 'sincronizar ordenes') {
         actualizarIndicadorOrigenDatos();
         const msg = obtenerMensajeError(err);
         console.error(`Error al ${contexto}:`, err);
-        alert(`No se pudo ${contexto}. ${msg}`);
+        await uiAlert(`No se pudo ${contexto}. ${msg}`, { title: 'Error' });
         return false;
     }
 }
@@ -196,7 +365,7 @@ function normalizarEstado(estado) {
     const v = String(estado || '').toLowerCase();
     if (v === 'aceptada') return 'Aceptada';
     if (v === 'presupuestada') return 'Presupuestada';
-    if (v === 'en reparacion' || v === 'en reparación') return 'En Reparación';
+    if (v === 'en reparacion' || v === 'en reparaciÃ³n') return 'En ReparaciÃ³n';
     if (v === 'terminada') return 'Terminada';
     if (v === 'archivada') return 'Archivada';
     return 'Aceptada';
@@ -356,10 +525,10 @@ function intentarConstruirItemDesdeInputs() {
     return { cantidad, descripcion, precioUnitario };
 }
 
-function agregarItemDesdeInputs() {
+async function agregarItemDesdeInputs() {
     const item = intentarConstruirItemDesdeInputs();
     if (!item) {
-        alert('Completa el precio unitario para agregar el item.');
+        await uiAlert('Completa el precio unitario para agregar el item.', { title: 'Dato faltante' });
         return false;
     }
 
@@ -465,7 +634,7 @@ function actualizarSugerenciasDescripcion() {
             if ((starts.length + contains.length) >= maxSugerencias) break;
         }
         opciones = starts.concat(contains).slice(0, maxSugerencias);
-        if (!opciones.length) opciones = ['+Agregar descripción'];
+        if (!opciones.length) opciones = ['+Agregar descripciÃ³n'];
     }
 
     listaArticulos.innerHTML = '';
@@ -476,7 +645,7 @@ function actualizarSugerenciasDescripcion() {
         item.textContent = op;
         item.addEventListener('mousedown', (event) => event.preventDefault());
         item.addEventListener('click', () => {
-            if (op === '+Agregar descripción') {
+            if (op === '+Agregar descripciÃ³n') {
                 ventaDescripcion.value = '';
                 ventaDescripcion.focus();
                 actualizarSugerenciasDescripcion();
@@ -566,7 +735,10 @@ function dibujarHistorialCaja(contenedor, items, textoVacio, tipoCaja) {
             const btnEditar = document.createElement('button');
             btnEditar.type = 'button';
             btnEditar.className = 'historial-item-btn historial-item-btn-edit';
-            btnEditar.textContent = '?';
+            btnEditar.appendChild(createIconSvg([
+                'M3 17.25V21h3.75L19.81 7.94l-3.75-3.75L3 17.25z',
+                'M14.06 4.19l3.75 3.75'
+            ]));
             btnEditar.title = 'Editar venta';
             btnEditar.setAttribute('aria-label', 'Editar venta');
             btnEditar.addEventListener('click', async () => {
@@ -576,7 +748,13 @@ function dibujarHistorialCaja(contenedor, items, textoVacio, tipoCaja) {
             const btnEliminar = document.createElement('button');
             btnEliminar.type = 'button';
             btnEliminar.className = 'historial-item-btn historial-item-btn-delete';
-            btnEliminar.textContent = '??';
+            btnEliminar.appendChild(createIconSvg([
+                'M4 7h16',
+                'M9 7V5h6v2',
+                'M7 7l1 12h8l1-12',
+                'M10 11v6',
+                'M14 11v6'
+            ]));
             btnEliminar.title = 'Eliminar venta';
             btnEliminar.setAttribute('aria-label', 'Eliminar venta');
             btnEliminar.addEventListener('click', async () => {
@@ -633,21 +811,21 @@ function dibujarHistorialCaja(contenedor, items, textoVacio, tipoCaja) {
 async function editarMovimientoCaja(caja, item) {
     const id = String(item && item.id ? item.id : '').trim();
     if (!id) {
-        alert('No se pudo editar: movimiento sin id.');
+        await uiAlert('No se pudo editar: movimiento sin id.', { title: 'Error' });
         return;
     }
 
     const descripcionActual = String(item && item.descripcion ? item.descripcion : '');
-    const desc = prompt('Editar descripcion de la venta:', descripcionActual);
+    const desc = await uiPrompt('Editar descripcion de la venta:', descripcionActual, { title: 'Editar venta' });
     if (desc === null) return;
 
     const importeActual = formatearNumeroEntero(item && item.importe ? item.importe : 0);
-    const impInput = prompt('Editar importe de la venta:', importeActual);
+    const impInput = await uiPrompt('Editar importe de la venta:', importeActual, { title: 'Editar venta' });
     if (impInput === null) return;
 
     const nuevoImporte = limpiarImporteEntero(impInput);
     if (!nuevoImporte) {
-        alert('El importe debe ser mayor que 0.');
+        await uiAlert('El importe debe ser mayor que 0.', { title: 'Dato invalido' });
         return;
     }
 
@@ -662,18 +840,23 @@ async function editarMovimientoCaja(caja, item) {
     } catch (err) {
         console.error('No se pudo editar la venta:', err);
         const msg = String(err && (err.message || err.name || err));
-        alert('No se pudo editar la venta: ' + msg);
+        await uiAlert('No se pudo editar la venta: ' + msg, { title: 'Error' });
     }
 }
 
 async function eliminarMovimientoCaja(caja, item) {
     const id = String(item && item.id ? item.id : '').trim();
     if (!id) {
-        alert('No se pudo eliminar: movimiento sin id.');
+        await uiAlert('No se pudo eliminar: movimiento sin id.', { title: 'Error' });
         return;
     }
 
-    const ok = confirm('¿Seguro que queres eliminar esta venta de caja?');
+    const ok = await uiConfirm('Seguro que queres eliminar esta venta de caja?', {
+        title: 'Eliminar venta',
+        okText: 'Eliminar',
+        cancelText: 'Cancelar',
+        danger: true
+    });
     if (!ok) return;
 
     try {
@@ -682,10 +865,9 @@ async function eliminarMovimientoCaja(caja, item) {
     } catch (err) {
         console.error('No se pudo eliminar la venta:', err);
         const msg = String(err && (err.message || err.name || err));
-        alert('No se pudo eliminar la venta: ' + msg);
+        await uiAlert('No se pudo eliminar la venta: ' + msg, { title: 'Error' });
     }
 }
-
 function renderCaja() {
     if (totalCobrarNegocio) totalCobrarNegocio.textContent = formatearNumeroEntero(cajaState.cajaNegocioTotal);
     if (totalCajaNegocio) totalCajaNegocio.textContent = formatearNumeroEntero(cajaState.cajaNegocioTotal);
@@ -806,7 +988,7 @@ function actualizarContadores() {
     for (const rep of reparaciones) {
         if (rep.estado === 'Aceptada') cAceptada += 1;
         if (rep.estado === 'Presupuestada') cPresupuesto += 1;
-        if (rep.estado === 'En Reparación') cTaller += 1;
+        if (rep.estado === 'En ReparaciÃ³n') cTaller += 1;
         if (rep.estado === 'Terminada') cTerminada += 1;
         if (rep.estado === 'Archivada') cArchivada += 1;
     }
@@ -828,7 +1010,7 @@ function activarPestana(estado) {
 
     if (estado === 'Aceptada') tabAceptada.classList.add('activo');
     if (estado === 'Presupuestada') tabPresupuesta.classList.add('activo');
-    if (estado === 'En Reparación') tabTaller.classList.add('activo');
+    if (estado === 'En ReparaciÃ³n') tabTaller.classList.add('activo');
     if (estado === 'Terminada') tabTerminada.classList.add('activo');
     if (estado === 'Archivada') tabArchivada.classList.add('activo');
 }
@@ -852,7 +1034,7 @@ function dibujarLista() {
 
     for (const rep of filtradas) {
         const div = document.createElement('div');
-        const claseBorde = rep.estado === 'En Reparación' ? 'En-Reparacion' : rep.estado;
+        const claseBorde = rep.estado === 'En ReparaciÃ³n' ? 'En-Reparacion' : rep.estado;
         div.className = 'registro borde-' + claseBorde.replace(/ /g, '-');
 
         const nSerie = rep.serie
@@ -888,7 +1070,7 @@ function dibujarLista() {
             botoneraFlujo =
                 '<button class="btn-flujo" data-action="acepto" style="background-color:#f39c12; margin-right:5px;">Cliente Acepto (Ir a Taller)</button>' +
                 '<button class="btn-flujo" data-action="rechazo" style="background-color:#e67e22;">Cliente NO Acepto</button>';
-        } else if (rep.estado === 'En Reparación') {
+        } else if (rep.estado === 'En ReparaciÃ³n') {
             botoneraFlujo = '<button class="btn-flujo" data-action="terminada" style="background-color:#2ecc71;">Trabajo Listo para Retirar</button>';
         } else if (rep.estado === 'Terminada') {
             botoneraFlujo = '<button class="btn-flujo" data-action="archivar" style="background-color:#16a085;">MARCAR COMO ENTREGADO Y COBRADO</button>';
@@ -899,7 +1081,7 @@ function dibujarLista() {
         const nroOrden = extraerNumeroOrden(rep) || rep.idOrden || rep.id;
 
         div.innerHTML =
-            `<div class="cliente"><span class="dato-resaltado">${rep.apellido}, ${rep.nombre}</span> <span class="num-orden">Orden N° ${nroOrden}</span></div>` +
+            `<div class="cliente"><span class="dato-resaltado">${rep.apellido}, ${rep.nombre}</span> <span class="num-orden">Orden NÂ° ${nroOrden}</span></div>` +
             `<p><b>TELEFONO:</b> ${rep.telefono || 'No registrado'}</p>` +
             `<p><b>EQUIPO:</b> <span class="dato-resaltado">${rep.marca} ${rep.modelo}</span></p>` +
             nSerie +
@@ -930,7 +1112,7 @@ function dibujarLista() {
             btn.addEventListener('click', async () => {
                 const action = btn.getAttribute('data-action');
                 if (action === 'presupuestar') await abrirCargaPresupuesto(rep);
-                if (action === 'acepto') await cambiarEstadoConAviso(rep, 'En Reparación');
+                if (action === 'acepto') await cambiarEstadoConAviso(rep, 'En ReparaciÃ³n');
                 if (action === 'rechazo') await rechazarPresupuestoFijo(rep);
                 if (action === 'terminada') await cambiarEstadoConAviso(rep, 'Terminada');
                 if (action === 'archivar') await entregarEquipoFijo(rep);
@@ -1096,26 +1278,26 @@ function construirMensajeWhatsApp(rep) {
     const numeroOrden = extraerNumeroOrden(rep) || rep.idOrden || rep.id;
 
     if (rep.estado === 'Aceptada') {
-        return `Hola *${rep.nombre}*, nos comunicamos desde el Servicio Tecnico *MyB Electronica*. Tu equipo *${rep.marca} ${rep.modelo}* ya fue ingresado correctamente bajo la orden de trabajo *N° ${numeroOrden}*. Queda a la espera de revision tecnico-diagnostica.`;
+        return `Hola *${rep.nombre}*, nos comunicamos desde el Servicio Tecnico *MyB Electronica*. Tu equipo *${rep.marca} ${rep.modelo}* ya fue ingresado correctamente bajo la orden de trabajo *NÂ° ${numeroOrden}*. Queda a la espera de revision tecnico-diagnostica.`;
     }
 
     if (rep.estado === 'Presupuestada') {
-        return `Hola *${rep.nombre}*, nos comunicamos desde el Servicio Tecnico *MyB Electronica*. Te adjuntamos el presupuesto para tu equipo *${rep.marca} ${rep.modelo}* bajo la orden de trabajo *N° ${numeroOrden}*.\n\nFalla: *${rep.detallePresupuesto || rep.detalle_presupuesto || ''}*\nCosto: *$${rep.precioPresupuesto || rep.precio_presupuesto || ''}*\n\nPor favor, confirmanos si aprobas el presupuesto.`;
+        return `Hola *${rep.nombre}*, nos comunicamos desde el Servicio Tecnico *MyB Electronica*. Te adjuntamos el presupuesto para tu equipo *${rep.marca} ${rep.modelo}* bajo la orden de trabajo *NÂ° ${numeroOrden}*.\n\nFalla: *${rep.detallePresupuesto || rep.detalle_presupuesto || ''}*\nCosto: *$${rep.precioPresupuesto || rep.precio_presupuesto || ''}*\n\nPor favor, confirmanos si aprobas el presupuesto.`;
     }
 
-    if (rep.estado === 'En Reparación') {
-        return `Hola *${rep.nombre}*, nos comunicamos desde el Servicio Tecnico *MyB Electronica*. Te informamos que el presupuesto de *$${rep.precioPresupuesto || rep.precio_presupuesto || ''}* fue aprobado y tu equipo *${rep.marca} ${rep.modelo}* bajo la orden de trabajo *N° ${numeroOrden}* ya se encuentra en proceso de reparacion.`;
+    if (rep.estado === 'En ReparaciÃ³n') {
+        return `Hola *${rep.nombre}*, nos comunicamos desde el Servicio Tecnico *MyB Electronica*. Te informamos que el presupuesto de *$${rep.precioPresupuesto || rep.precio_presupuesto || ''}* fue aprobado y tu equipo *${rep.marca} ${rep.modelo}* bajo la orden de trabajo *NÂ° ${numeroOrden}* ya se encuentra en proceso de reparacion.`;
     }
 
     if (rep.estado === 'Terminada' || rep.estado === 'Archivada') {
         if (rep.fueReparado === false) {
-            return `Hola *${rep.nombre}*, nos comunicamos desde el Servicio Tecnico *MyB Electronica*. Te informamos que podes pasar a retirar tu equipo *${rep.marca} ${rep.modelo}* bajo la orden de trabajo *N° ${numeroOrden}* que quedo devuelto sin arreglo.`;
+            return `Hola *${rep.nombre}*, nos comunicamos desde el Servicio Tecnico *MyB Electronica*. Te informamos que podes pasar a retirar tu equipo *${rep.marca} ${rep.modelo}* bajo la orden de trabajo *NÂ° ${numeroOrden}* que quedo devuelto sin arreglo.`;
         }
 
-        return `Hola *${rep.nombre}*, nos comunicamos desde el Servicio Tecnico *MyB Electronica*. El trabajo de tu equipo *${rep.marca} ${rep.modelo}* bajo la orden de trabajo *N° ${numeroOrden}* ya esta listo. El costo de la reparacion es de *$${rep.precioPresupuesto || rep.precio_presupuesto || ''}*. Podes pasar a retirarlo cuando gustes.`;
+        return `Hola *${rep.nombre}*, nos comunicamos desde el Servicio Tecnico *MyB Electronica*. El trabajo de tu equipo *${rep.marca} ${rep.modelo}* bajo la orden de trabajo *NÂ° ${numeroOrden}* ya esta listo. El costo de la reparacion es de *$${rep.precioPresupuesto || rep.precio_presupuesto || ''}*. Podes pasar a retirarlo cuando gustes.`;
     }
 
-    return `Hola *${rep.nombre}*, tenemos novedades sobre tu orden *N° ${numeroOrden}*.`;
+    return `Hola *${rep.nombre}*, tenemos novedades sobre tu orden *NÂ° ${numeroOrden}*.`;
 }
 
 function enviarWhatsAppDirecto(rep) {
@@ -1138,7 +1320,11 @@ async function cambiarEstadoConAviso(rep, nuevoEstado) {
 }
 
 async function entregarEquipoFijo(rep) {
-    const ok = confirm('¿Confirmas que el cliente pago y retiro el equipo? Irá a la pestaña de Archivadas.');
+    const ok = await uiConfirm('Confirmas que el cliente pago y retiro el equipo? Ira a la pestaÃ±a de Archivadas.', {
+        title: 'Confirmar entrega',
+        okText: 'Si, confirmar',
+        cancelText: 'Cancelar'
+    });
     if (!ok) return;
 
     await datastore.updateOrder(rep.id, { estado: 'Archivada' });
@@ -1147,7 +1333,7 @@ async function entregarEquipoFijo(rep) {
         const numeroOrden = extraerNumeroOrden(rep) || rep.idOrden || rep.id;
         await agregarMovimientoCaja({
             caja: 'reparaciones',
-            descripcion: `Orden N° ${numeroOrden} - ${rep.marca} ${rep.modelo}`,
+            descripcion: `Orden NÂ° ${numeroOrden} - ${rep.marca} ${rep.modelo}`,
             importe: montoCobrado,
             origen: 'reparacion',
             ordenId: rep.id
@@ -1158,8 +1344,8 @@ async function entregarEquipoFijo(rep) {
         const numLimpio = limpiarNumeroTelefonoFijo(rep.telefono);
         const numeroOrden = extraerNumeroOrden(rep) || rep.idOrden || rep.id;
         const textoCierre = rep.fueReparado === false
-            ? `Hola *${rep.nombre}*, te confirmamos que tu equipo *${rep.marca} ${rep.modelo}* bajo la orden de trabajo *N° ${numeroOrden}* fue retirado de nuestro local (Devuelto sin arreglo). Muchas gracias por confiar en *MyB Electronica*!`
-            : `Hola *${rep.nombre}*, te confirmamos que tu equipo *${rep.marca} ${rep.modelo}* bajo la orden de trabajo *N° ${numeroOrden}* fue entregado y cobrado correctamente la suma de *$${rep.precioPresupuesto || rep.precio_presupuesto || ''}*. Muchas gracias por confiar en *MyB Electronica*!`;
+            ? `Hola *${rep.nombre}*, te confirmamos que tu equipo *${rep.marca} ${rep.modelo}* bajo la orden de trabajo *NÂ° ${numeroOrden}* fue retirado de nuestro local (Devuelto sin arreglo). Muchas gracias por confiar en *MyB Electronica*!`
+            : `Hola *${rep.nombre}*, te confirmamos que tu equipo *${rep.marca} ${rep.modelo}* bajo la orden de trabajo *NÂ° ${numeroOrden}* fue entregado y cobrado correctamente la suma de *$${rep.precioPresupuesto || rep.precio_presupuesto || ''}*. Muchas gracias por confiar en *MyB Electronica*!`;
 
         const urlCierre = `whatsapp://send?phone=${numLimpio}&text=${encodeURIComponent(textoCierre)}`;
         window.location.href = urlCierre;
@@ -1171,10 +1357,18 @@ async function entregarEquipoFijo(rep) {
 }
 
 async function abrirCargaPresupuesto(rep) {
-    const detalle = prompt('¿Cual es la falla real que encontraste en el diagnostico tecnico?', rep.detallePresupuesto || rep.detalle_presupuesto || '');
+    const detalle = await uiPrompt(
+        'Cual es la falla real que encontraste en el diagnostico tecnico?',
+        rep.detallePresupuesto || rep.detalle_presupuesto || '',
+        { title: 'Cargar presupuesto', okText: 'Continuar' }
+    );
     if (detalle === null) return;
 
-    const precioInput = prompt('¿Cual es el costo/precio final de esta reparacion? (No importa si no pones los puntos)', rep.precioPresupuesto || rep.precio_presupuesto || '');
+    const precioInput = await uiPrompt(
+        'Cual es el costo/precio final de esta reparacion? (No importa si no pones los puntos)',
+        rep.precioPresupuesto || rep.precio_presupuesto || '',
+        { title: 'Cargar presupuesto', okText: 'Guardar' }
+    );
     if (precioInput === null) return;
 
     const upd = {
@@ -1199,7 +1393,11 @@ async function abrirCargaPresupuesto(rep) {
 }
 
 async function rechazarPresupuestoFijo(rep) {
-    const ok = confirm('¿Marcar este equipo como rechazado por el cliente? Se enviará a terminadas sin costo y disparará el aviso.');
+    const ok = await uiConfirm('Marcar este equipo como rechazado por el cliente? Se enviara a terminadas sin costo y disparara el aviso.', {
+        title: 'Rechazar presupuesto',
+        okText: 'Si, rechazar',
+        cancelText: 'Cancelar'
+    });
     if (!ok) return;
 
     const upd = {
@@ -1231,7 +1429,7 @@ async function guardarOrdenManual() {
     const fal = document.getElementById('falla').value.trim();
 
     if (!nom || !ape || !mar || !mod || !fal) {
-        alert('Por favor, completa los campos obligatorios para ingresar el equipo.');
+        await uiAlert('Por favor, completa los campos obligatorios para ingresar el equipo.', { title: 'Dato faltante' });
         return;
     }
 
@@ -1283,7 +1481,12 @@ async function guardarOrdenManual() {
 }
 
 async function eliminarOrden(id) {
-    const ok = confirm('¿Estas seguro de borrar este registro de forma permanente?');
+    const ok = await uiConfirm('Estas seguro de borrar este registro de forma permanente?', {
+        title: 'Eliminar orden',
+        okText: 'Eliminar',
+        cancelText: 'Cancelar',
+        danger: true
+    });
     if (!ok) return;
     await datastore.deleteOrder(id);
     await fetchAndRenderSafe('refrescar ordenes');
@@ -1296,10 +1499,10 @@ btnGuardar.addEventListener('click', async () => {
         console.error(err);
         const msg = String(err && (err.message || err.name || err));
         if (msg.toLowerCase().includes('quota') || msg.toLowerCase().includes('insufficient')) {
-            alert('No se pudo guardar: el almacenamiento del navegador esta lleno. Te conviene exportar respaldo y liberar espacio del navegador.');
+            await uiAlert('No se pudo guardar: el almacenamiento del navegador esta lleno. Te conviene exportar respaldo y liberar espacio del navegador.', { title: 'Sin espacio' });
             return;
         }
-        alert('No se pudo guardar la orden: ' + msg);
+        await uiAlert('No se pudo guardar la orden: ' + msg, { title: 'Error' });
     }
 });
 
@@ -1311,7 +1514,7 @@ function filtrarPor(estado) {
 
 tabAceptada.addEventListener('click', () => filtrarPor('Aceptada'));
 tabPresupuesta.addEventListener('click', () => filtrarPor('Presupuestada'));
-tabTaller.addEventListener('click', () => filtrarPor('En Reparación'));
+tabTaller.addEventListener('click', () => filtrarPor('En ReparaciÃ³n'));
 tabTerminada.addEventListener('click', () => filtrarPor('Terminada'));
 tabArchivada.addEventListener('click', () => filtrarPor('Archivada'));
 menuCobrar.addEventListener('click', () => mostrarSeccion('cobrar'));
@@ -1392,8 +1595,8 @@ if (ventaTotalFinal) {
     });
 }
 
-btnAgregarItem.addEventListener('click', () => {
-    agregarItemDesdeInputs();
+btnAgregarItem.addEventListener('click', async () => {
+    await agregarItemDesdeInputs();
 });
 
 btnRegistrarVenta.addEventListener('click', async () => {
@@ -1405,7 +1608,7 @@ btnRegistrarVenta.addEventListener('click', async () => {
         }
 
         if (!itemsVentaActual.length) {
-            alert('Agrega al menos un item para registrar la venta.');
+            await uiAlert('Agrega al menos un item para registrar la venta.', { title: 'Dato faltante' });
             return;
         }
 
@@ -1429,14 +1632,14 @@ btnRegistrarVenta.addEventListener('click', async () => {
     } catch (err) {
         console.error('No se pudo registrar la venta:', err);
         const msg = String(err && (err.message || err.name || err));
-        alert('No se pudo registrar la venta: ' + msg);
+        await uiAlert('No se pudo registrar la venta: ' + msg, { title: 'Error' });
     }
 });
 
 btnExport.addEventListener('click', async () => {
     const data = await datastore.exportAll();
     if (!Array.isArray(data) || data.length === 0) {
-        alert('No hay datos para exportar.');
+        await uiAlert('No hay datos para exportar.', { title: 'Sin datos' });
         return;
     }
 
@@ -1457,18 +1660,20 @@ fileInput.addEventListener('change', async (e) => {
         const txt = await f.text();
         const arr = JSON.parse(txt);
         await datastore.importFromArray(arr);
-        alert('Tus ordenes cargaron correctamente.');
+        await uiAlert('Tus ordenes cargaron correctamente.', { title: 'Importacion lista' });
         await fetchAndRenderSafe('refrescar ordenes');
         filtrarPor('Aceptada');
     } catch (err) {
-        alert('Archivo corrupto o no valido.');
+        await uiAlert('Archivo corrupto o no valido.', { title: 'Importacion fallida' });
     }
 
     fileInput.value = '';
 });
 
 buscar.addEventListener('input', () => dibujarLista());
-btnRefrescar.addEventListener('click', () => fetchAndRenderSafe('refrescar ordenes'));
+if (btnRefrescar) {
+    btnRefrescar.addEventListener('click', () => fetchAndRenderSafe('refrescar ordenes'));
+}
 
 async function bootstrapApp() {
     actualizarIndicadorOrigenDatos();
@@ -1485,7 +1690,7 @@ async function bootstrapApp() {
 
 bootstrapApp().catch((err) => {
     console.error('Error al iniciar app:', err);
-    alert('Error al iniciar app: ' + obtenerMensajeError(err));
+    uiAlert('Error al iniciar app: ' + obtenerMensajeError(err), { title: 'Error de inicio' });
 });
 
 if ('serviceWorker' in navigator) {
@@ -1497,6 +1702,11 @@ if ('serviceWorker' in navigator) {
         }
     });
 }
+
+
+
+
+
 
 
 

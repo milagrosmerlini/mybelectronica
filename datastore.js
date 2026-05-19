@@ -1,5 +1,5 @@
 ﻿const DB_NAME = 'myb_electronica_db';
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 const STORE_ORDERS = 'orders';
 const STORE_PHOTOS = 'photos';
 const STORE_META = 'meta';
@@ -950,3 +950,4 @@ export default {
   getStorageModeInfo,
   openDB
 };
+

@@ -94,9 +94,12 @@ h2, h3 { text-align: center; color: #1a252f; }
 .historial-item-fecha { color: #6f7b87; font-size: 12px; }
 .historial-item-descripcion { color: #1f2937; font-weight: 600; }
 .historial-item-actions { display: flex; align-items: center; gap: 6px; }
-.historial-item-btn { width: 30px; height: 30px; border: 1px solid #cfd8e3; border-radius: 7px; background: #fff; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; font-size: 15px; line-height: 1; }
-.historial-item-btn-edit { color: #1f2937; }
-.historial-item-btn-delete { color: #d62828; border-color: #f3b2b2; background: #fff5f5; }
+.historial-item-btn { width: 32px; height: 32px; border: 1px solid #d3d9e2; border-radius: 9px; background: #f7f8fb; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; line-height: 1; transition: transform .12s ease, background-color .12s ease, border-color .12s ease; }
+.historial-item-btn svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.historial-item-btn-edit { color: #0f766e; background: #eefcf9; border-color: #b7ebe3; }
+.historial-item-btn-delete { color: #b42318; border-color: #f2b2ad; background: #fff3f2; }
+.historial-item-btn-edit:hover { background: #dcf8f2; }
+.historial-item-btn-delete:hover { background: #ffe7e5; }
 .historial-item-btn:active { transform: scale(0.97); }
 .historial-dia-btn { width: 100%; border: 1px solid #dde3ea; border-radius: 8px; background: #ffffff; color: #1f2937; text-align: left; padding: 10px; margin-bottom: 6px; cursor: pointer; }
 .historial-dia-fecha { display: block; font-weight: 700; font-size: 13px; }
@@ -237,6 +240,76 @@ button, .btn-flujo, .btn-secundario-fijo, .btn-guardar-fijo, .menu-btn { touch-a
 .photo-viewer-prev { left: max(14px, env(safe-area-inset-left)); }
 .photo-viewer-next { right: max(14px, env(safe-area-inset-right)); }
 .photo-viewer-counter { margin-top: 12px; color: white; font-weight: bold; font-size: 14px; background: rgba(0,0,0,0.3); padding: 6px 12px; border-radius: 999px; }
+.app-dialog-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(10, 15, 25, 0.52);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    z-index: 10020;
+}
+.app-dialog {
+    width: min(460px, 100%);
+    background: #ffffff;
+    border-radius: 14px;
+    border: 1px solid #dde3ea;
+    box-shadow: 0 18px 36px rgba(17, 24, 39, 0.22);
+    padding: 16px;
+}
+.app-dialog-title {
+    margin: 0 0 8px;
+    color: #0f172a;
+    font-size: 18px;
+    font-weight: 800;
+}
+.app-dialog-message {
+    margin: 0;
+    color: #334155;
+    font-size: 14px;
+    line-height: 1.42;
+    white-space: pre-wrap;
+}
+.app-dialog-input {
+    width: 100%;
+    margin-top: 12px;
+    border: 1px solid #cfd8e3;
+    border-radius: 10px;
+    padding: 10px 12px;
+    font-size: 15px;
+    outline: none;
+}
+.app-dialog-input:focus {
+    border-color: #2563eb;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+}
+.app-dialog-actions {
+    margin-top: 14px;
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+}
+.app-dialog-btn {
+    border: 0;
+    border-radius: 10px;
+    padding: 10px 14px;
+    cursor: pointer;
+    font-weight: 700;
+    font-size: 14px;
+}
+.app-dialog-btn-cancel {
+    background: #e8edf3;
+    color: #0f172a;
+}
+.app-dialog-btn-ok {
+    background: #0f766e;
+    color: #ffffff;
+}
+.app-dialog-btn-danger {
+    background: #b42318;
+    color: #ffffff;
+}
 .pie-credito {
     margin: 24px 0 0;
     margin-top: auto;

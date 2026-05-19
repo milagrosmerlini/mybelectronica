@@ -6,9 +6,66 @@ h2, h3 { text-align: center; color: #1a252f; }
 .brand-texto { display: flex; flex-direction: column; line-height: 1.1; align-items: center; text-align: center; margin: 0 auto; }
 .brand-titulo { font-size: 24px; font-weight: 700; color: #1a252f; }
 .brand-subtitulo { font-size: 17px; font-weight: 600; color: #2f3e4d; margin-top: 4px; }
-.menu-principal { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-bottom: 14px; }
-.menu-btn { padding: 10px 8px; border-radius: 8px; border: 1px solid #cfd5dc; background: #ffffff; font-weight: 700; color: #2f3e4d; cursor: pointer; }
-.menu-btn.activo { background: #1f2937; border-color: #1f2937; color: #ffffff; }
+.menu-principal {
+    display: flex;
+    align-items: stretch;
+    gap: 16px;
+    border-bottom: 1px solid #d7dde5;
+    margin-bottom: 16px;
+    overflow-x: auto;
+    scrollbar-width: thin;
+}
+.menu-btn {
+    flex: 1 1 0;
+    min-width: 120px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 11px 8px;
+    border: 0;
+    border-bottom: 2px solid transparent;
+    background: transparent;
+    font-weight: 700;
+    color: #667383;
+    cursor: pointer;
+    transition: color 140ms ease, border-color 140ms ease, background-color 140ms ease;
+}
+.menu-btn:hover {
+    color: #1f2d3b;
+}
+.menu-btn.activo {
+    color: #0f1720;
+    border-bottom-color: #1f2937;
+}
+.menu-btn-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+.menu-btn-icon svg {
+    width: 16px;
+    height: 16px;
+    opacity: 0.88;
+}
+.menu-btn-label {
+    line-height: 1;
+    white-space: nowrap;
+}
+.menu-btn-badge {
+    min-width: 17px;
+    height: 17px;
+    border-radius: 999px;
+    padding: 0 5px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    line-height: 1;
+    font-weight: 700;
+    color: #ffffff;
+    background: #dc2626;
+}
 .vista-app.hidden { display: none; }
 .titulo-seccion { margin-top: 0; margin-bottom: 10px; }
 .panel-resumen-cobrar { background: #fff; border-radius: 10px; padding: 16px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 20px; }
@@ -23,6 +80,11 @@ h2, h3 { text-align: center; color: #1a252f; }
 .historial-item-monto { font-weight: 700; color: #2b8a3e; }
 .historial-item-fecha { color: #6f7b87; font-size: 12px; }
 .historial-item-descripcion { color: #1f2937; font-weight: 600; }
+.descripcion-wrap { position: relative; }
+.lista-articulos { position: absolute; z-index: 60; left: 0; right: 0; top: calc(100% + 4px); background: #101820; border: 1px solid #1f2c36; border-radius: 10px; box-shadow: 0 10px 26px rgba(0,0,0,0.38); max-height: 240px; overflow: auto; padding: 6px; }
+.lista-articulos.hidden { display: none; }
+.lista-articulos-item { width: 100%; text-align: left; border: 0; background: transparent; color: #f4f7fb; font-weight: 700; font-size: 14px; padding: 10px 10px; border-radius: 8px; cursor: pointer; }
+.lista-articulos-item:hover { background: #1f2c36; }
 .panel-ingreso { background: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 25px; }
 .fila-input { display: flex; gap: 10px; flex-wrap: wrap; }
 .fila-input input { min-width: 180px; flex: 1 1 180px; }
@@ -85,8 +147,9 @@ input, select { flex: 1; padding: 10px; margin: 6px 0; border-radius: 6px; borde
     .brand-logo { width: 56px; height: 56px; }
     .brand-titulo { font-size: 20px; }
     .brand-subtitulo { font-size: 15px; }
-    .menu-principal { gap: 6px; }
-    .menu-btn { font-size: 13px; }
+    .menu-principal { gap: 6px; margin-bottom: 14px; }
+    .menu-btn { min-width: 104px; font-size: 13px; padding: 10px 6px; gap: 6px; }
+    .menu-btn-icon svg { width: 15px; height: 15px; }
     .panel-ingreso { padding: 16px; }
     .caja-grid { grid-template-columns: 1fr; }
     .fila-input { gap: 8px; }

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'myb-electronica-cache-v7';
+const CACHE_NAME = 'myb-electronica-cache-v8';
 const APP_SHELL = [
     '/',
     '/index.html',
@@ -9,7 +9,7 @@ const APP_SHELL = [
     '/icons/icon-192.png',
     '/icons/icon-512.png',
     '/icons/apple-touch-icon.png',
-    '/logoMYB.jpg'
+    '/logoMyB.png'
 ];
 
 const APP_SHELL_URLS = new Set(APP_SHELL.map((path) => new URL(path, self.location.origin).href));

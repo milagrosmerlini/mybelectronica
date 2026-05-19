@@ -8,6 +8,7 @@ const FINANCE_KEY = 'finance_state';
 const SUPABASE_DEFAULT_ORDERS_TABLE = 'myb_orders';
 const SUPABASE_DEFAULT_PHOTOS_TABLE = 'myb_photos';
 const SUPABASE_DEFAULT_META_TABLE = 'myb_meta';
+let warnedInvalidSupabaseConfig = false;
 
 function getSafeLocalStorageValue(key) {
   try {
@@ -19,6 +20,15 @@ function getSafeLocalStorageValue(key) {
 
 function cleanUrl(raw) {
   return String(raw || '').trim().replace(/\/+$/, '');
+}
+
+function isValidHttpUrl(value) {
+  try {
+    const url = new URL(String(value || '').trim());
+    return url.protocol === 'http:' || url.protocol === 'https:';
+  } catch (_err) {
+    return false;
+  }
 }
 
 function getCloudConfig() {
@@ -41,9 +51,16 @@ function getCloudConfig() {
   const ordersTable = String(runtime.ordersTable || SUPABASE_DEFAULT_ORDERS_TABLE).trim();
   const photosTable = String(runtime.photosTable || SUPABASE_DEFAULT_PHOTOS_TABLE).trim();
   const metaTable = String(runtime.metaTable || SUPABASE_DEFAULT_META_TABLE).trim();
+  const urlValida = isValidHttpUrl(url);
+  const enabled = Boolean(urlValida && anonKey);
+
+  if (!enabled && !warnedInvalidSupabaseConfig && (url || anonKey)) {
+    warnedInvalidSupabaseConfig = true;
+    console.warn('Supabase desactivado: configuracion invalida. Se usara almacenamiento local (IndexedDB).');
+  }
 
   return {
-    enabled: Boolean(url && anonKey),
+    enabled,
     url,
     anonKey,
     ordersTable,

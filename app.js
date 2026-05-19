@@ -1273,34 +1273,40 @@ btnAgregarItem.addEventListener('click', () => {
 });
 
 btnRegistrarVenta.addEventListener('click', async () => {
-    const posibleItem = intentarConstruirItemDesdeInputs();
-    if (posibleItem) {
-        itemsVentaActual.push(posibleItem);
+    try {
+        const posibleItem = intentarConstruirItemDesdeInputs();
+        if (posibleItem) {
+            itemsVentaActual.push(posibleItem);
+            limpiarCamposItemVenta();
+        }
+
+        if (!itemsVentaActual.length) {
+            alert('Agrega al menos un item para registrar la venta.');
+            return;
+        }
+
+        const importe = totalFinalVenta();
+        const descripcion = itemsVentaActual
+            .map((it) => `${it.cantidad}x ${it.descripcion}`)
+            .join(' | ');
+
+        await agregarMovimientoCaja({
+            caja: 'negocio',
+            descripcion,
+            importe,
+            origen: 'venta'
+        });
+
+        itemsVentaActual = [];
+        totalVentaManualOverride = null;
         limpiarCamposItemVenta();
+        dibujarTablaItemsVenta();
+        listaArticulos.classList.add('hidden');
+    } catch (err) {
+        console.error('No se pudo registrar la venta:', err);
+        const msg = String(err && (err.message || err.name || err));
+        alert('No se pudo registrar la venta: ' + msg);
     }
-
-    if (!itemsVentaActual.length) {
-        alert('Agrega al menos un item para registrar la venta.');
-        return;
-    }
-
-    const importe = totalFinalVenta();
-    const descripcion = itemsVentaActual
-        .map((it) => `${it.cantidad}x ${it.descripcion}`)
-        .join(' | ');
-
-    await agregarMovimientoCaja({
-        caja: 'negocio',
-        descripcion,
-        importe,
-        origen: 'venta'
-    });
-
-    itemsVentaActual = [];
-    totalVentaManualOverride = null;
-    limpiarCamposItemVenta();
-    dibujarTablaItemsVenta();
-    listaArticulos.classList.add('hidden');
 });
 
 btnExport.addEventListener('click', async () => {

@@ -1,4 +1,4 @@
-﻿import datastore from './datastore.js?v=20260519-cloud5';
+﻿import datastore from './datastore.js?v=20260519-cloud6';
 
 const lista = document.getElementById('listaReparaciones');
 const fotoInput = document.getElementById('fotoInput');
@@ -274,10 +274,10 @@ function actualizarIndicadorOrigenDatos() {
     if (!dataSourceStatus || typeof datastore.getStorageModeInfo !== 'function') return;
 
     const info = datastore.getStorageModeInfo();
-    const modoSync = info && info.mode === 'local_with_cloud_sync';
+    const modoSync = info && info.mode === 'cloud_with_local_cache';
     const modoCloud = modoSync;
     const etiqueta = modoSync
-        ? 'LOCAL + SYNC SUPABASE'
+        ? 'NUBE (Supabase)'
         : 'LOCAL (solo este dispositivo)';
 
     dataSourceStatus.textContent = `Datos: ${etiqueta}`;
@@ -1702,6 +1702,8 @@ if ('serviceWorker' in navigator) {
         }
     });
 }
+
+
 
 
 

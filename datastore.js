@@ -688,6 +688,45 @@ async function localImportFromArray(arr) {
   });
 }
 
+async function localReplaceOrdersFromArray(arr) {
+  if (!Array.isArray(arr)) {
+    throw new Error('Formato invalido');
+  }
+
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction([STORE_ORDERS, STORE_PHOTOS], 'readwrite');
+    const ordersStore = tx.objectStore(STORE_ORDERS);
+    const photosStore = tx.objectStore(STORE_PHOTOS);
+
+    ordersStore.clear();
+    photosStore.clear();
+
+    for (const it of arr) {
+      const id = it.id || `ord_${Date.now()}_${Math.random().toString(16).slice(2, 7)}`;
+      const copy = Object.assign({}, it, { id });
+      ordersStore.put(copy);
+
+      if (Array.isArray(it.fotos)) {
+        for (let i = 0; i < it.fotos.length; i += 1) {
+          const foto = it.fotos[i];
+          const pid = `${id}_p_sync_${Date.now()}_${i}`;
+          photosStore.put({ id: pid, orderId: id, name: pid, dataUrl: foto });
+        }
+      }
+    }
+
+    tx.oncomplete = () => {
+      db.close();
+      resolve(true);
+    };
+    tx.onerror = () => {
+      db.close();
+      reject(tx.error);
+    };
+  });
+}
+
 async function localGetFinanceState() {
   const db = await openDB();
   return new Promise((resolve, reject) => {
@@ -703,6 +742,25 @@ async function localGetFinanceState() {
     req.onerror = () => {
       db.close();
       reject(req.error);
+    };
+  });
+}
+
+async function localSetFinanceState(state) {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_META, 'readwrite');
+    const store = tx.objectStore(STORE_META);
+    const value = recalcularTotalesFinanceState(state || {});
+    store.put({ key: FINANCE_KEY, value });
+
+    tx.oncomplete = () => {
+      db.close();
+      resolve(true);
+    };
+    tx.onerror = () => {
+      db.close();
+      reject(tx.error);
     };
   });
 }
@@ -853,7 +911,7 @@ function usarCloud() {
 function getStorageModeInfo() {
   const cfg = getCloudConfig();
   return {
-    mode: cfg.enabled ? 'local_with_cloud_sync' : 'local',
+    mode: cfg.enabled ? 'cloud_with_local_cache' : 'local',
     reason: cfg.enabled ? null : 'supabase_config_invalid',
     pendingCloudResync,
     url: cfg.url || '',
@@ -888,7 +946,22 @@ async function deleteOrder(id) {
 }
 
 async function getOrders() {
-  return localGetOrders();
+  if (!usarCloud()) return localGetOrders();
+
+  try {
+    if (pendingCloudResync) {
+      await cloudReplaceAllFromLocal();
+      pendingCloudResync = false;
+    }
+
+    const cloudOrders = await cloudGetOrders();
+    await localReplaceOrdersFromArray(cloudOrders);
+    return cloudOrders;
+  } catch (err) {
+    const detalle = err && err.message ? String(err.message) : String(err || 'error desconocido');
+    console.warn('No se pudo leer desde Supabase. Se usa cache local.', detalle);
+    return localGetOrders();
+  }
 }
 
 async function exportAll() {
@@ -904,7 +977,22 @@ async function importFromArray(arr) {
 }
 
 async function getFinanceState() {
-  return localGetFinanceState();
+  if (!usarCloud()) return localGetFinanceState();
+
+  try {
+    if (pendingCloudResync) {
+      await cloudReplaceAllFromLocal();
+      pendingCloudResync = false;
+    }
+
+    const cloudState = await cloudGetFinanceState();
+    await localSetFinanceState(cloudState);
+    return cloudState;
+  } catch (err) {
+    const detalle = err && err.message ? String(err.message) : String(err || 'error desconocido');
+    console.warn('No se pudo leer caja desde Supabase. Se usa cache local.', detalle);
+    return localGetFinanceState();
+  }
 }
 
 async function appendFinanceMovement(movement) {

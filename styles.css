@@ -1,5 +1,5 @@
-body { font-family: Arial, sans-serif; margin: 0; background-color: #f0f2f5; color: #333; }
-.contenedor { max-width: 900px; margin: auto; padding: 16px; box-sizing: border-box; }
+body { font-family: Arial, sans-serif; margin: 0; background-color: #f0f2f5; color: #333; min-height: 100vh; }
+.contenedor { max-width: 900px; margin: auto; padding: 16px; box-sizing: border-box; min-height: 100vh; display: flex; flex-direction: column; }
 h2, h3 { text-align: center; color: #1a252f; }
 .brand-header { position: relative; display: flex; align-items: center; justify-content: center; min-height: 70px; margin-bottom: 16px; }
 .brand-logo { position: absolute; left: 0; top: 50%; transform: translateY(-50%); width: 70px; height: 70px; object-fit: cover; border-radius: 8px; border: 1px solid #d6dbe1; box-shadow: 0 1px 3px rgba(0,0,0,0.12); }
@@ -80,11 +80,52 @@ h2, h3 { text-align: center; color: #1a252f; }
 .historial-item-monto { font-weight: 700; color: #2b8a3e; }
 .historial-item-fecha { color: #6f7b87; font-size: 12px; }
 .historial-item-descripcion { color: #1f2937; font-weight: 600; }
-.descripcion-wrap { position: relative; }
+.historial-dia-btn { width: 100%; border: 1px solid #dde3ea; border-radius: 8px; background: #ffffff; color: #1f2937; text-align: left; padding: 10px; margin-bottom: 6px; cursor: pointer; }
+.historial-dia-fecha { display: block; font-weight: 700; font-size: 13px; }
+.historial-dia-resumen { display: block; margin-top: 2px; font-size: 12px; color: #4f5f70; }
+.historial-toggle-btn { width: 100%; border: 1px dashed #b8c4d1; border-radius: 8px; background: #f3f6fa; color: #263646; font-weight: 700; padding: 9px; cursor: pointer; margin-top: 6px; margin-bottom: 6px; }
+.historial-dia-titulo { text-align: center; font-weight: 700; font-size: 13px; color: #34495e; margin-bottom: 8px; }
+.cobrar-bloque { width: 100%; max-width: 780px; margin: 0 auto; }
+.cobrar-fila {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+    align-items: start;
+    width: 100%;
+}
+.cobrar-fila > .cobrar-campo { min-width: 0; }
+.cobrar-bloque #btn-agregar-item,
+.cobrar-bloque #btn-registrar-venta,
+.cobrar-bloque .tabla-items-wrap,
+.cobrar-bloque .tabla-total-general { width: 100%; }
+.cobrar-campo { display: flex; flex-direction: column; gap: 4px; }
+.cobrar-campo-label { text-align: center; font-size: 12px; font-weight: 700; color: #4f5f70; }
+.cobrar-campo input { margin: 0; width: 100%; min-height: 38px; }
+.btn-secundario-fijo {
+    width: 100%;
+    min-height: 38px;
+    padding: 0 12px;
+    margin-top: 10px;
+    border-radius: 6px;
+    border: 1px solid #9ea8b3;
+    background: #f5f7fa;
+    color: #1f2937;
+    font-weight: 700;
+    cursor: pointer;
+}
+.tabla-items-wrap { margin-top: 12px; border: 1px solid #dfe4ea; border-radius: 8px; overflow: hidden; background: #ffffff; }
+.tabla-items { width: 100%; border-collapse: collapse; font-size: 13px; }
+.tabla-items th, .tabla-items td { border-bottom: 1px solid #edf1f5; padding: 8px; text-align: left; }
+.tabla-items th { background: #f6f8fb; color: #1f2937; font-size: 12px; }
+.tabla-items tbody tr:last-child td { border-bottom: none; }
+.tabla-items-vacio td { color: #6f7b87; text-align: center; font-style: italic; }
+.tabla-total-general { margin-top: 10px; text-align: right; font-weight: 800; color: #1f2937; font-size: 16px; }
+.descripcion-wrap { position: relative; width: 100%; }
 .lista-articulos { position: absolute; z-index: 60; left: 0; right: 0; top: calc(100% + 4px); background: #101820; border: 1px solid #1f2c36; border-radius: 10px; box-shadow: 0 10px 26px rgba(0,0,0,0.38); max-height: 240px; overflow: auto; padding: 6px; }
 .lista-articulos.hidden { display: none; }
 .lista-articulos-item { width: 100%; text-align: left; border: 0; background: transparent; color: #f4f7fb; font-weight: 700; font-size: 14px; padding: 10px 10px; border-radius: 8px; cursor: pointer; }
 .lista-articulos-item:hover { background: #1f2c36; }
+#venta-descripcion, #venta-importe { font-size: 16px; }
 .panel-ingreso { background: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 25px; }
 .fila-input { display: flex; gap: 10px; flex-wrap: wrap; }
 .fila-input input { min-width: 180px; flex: 1 1 180px; }
@@ -139,6 +180,7 @@ input, select { flex: 1; padding: 10px; margin: 6px 0; border-radius: 6px; borde
 .photo-viewer-prev { left: max(14px, env(safe-area-inset-left)); }
 .photo-viewer-next { right: max(14px, env(safe-area-inset-right)); }
 .photo-viewer-counter { margin-top: 12px; color: white; font-weight: bold; font-size: 14px; background: rgba(0,0,0,0.3); padding: 6px 12px; border-radius: 999px; }
+.pie-credito { margin: 24px 0 8px; margin-top: auto; text-align: center; color: #5f6d7a; font-size: 13px; font-weight: 600; }
 @media (max-width: 600px) {
     .photo-viewer-nav { width: 38px; height: 38px; font-size: 26px; }
     .photo-viewer-close { width: 36px; height: 36px; font-size: 20px; }
@@ -147,10 +189,37 @@ input, select { flex: 1; padding: 10px; margin: 6px 0; border-radius: 6px; borde
     .brand-logo { width: 56px; height: 56px; }
     .brand-titulo { font-size: 20px; }
     .brand-subtitulo { font-size: 15px; }
-    .menu-principal { gap: 6px; margin-bottom: 14px; }
-    .menu-btn { min-width: 104px; font-size: 13px; padding: 10px 6px; gap: 6px; }
-    .menu-btn-icon svg { width: 15px; height: 15px; }
+    .menu-principal {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 4px;
+        margin-bottom: 14px;
+        overflow: visible;
+    }
+    .menu-btn {
+        min-width: 0;
+        width: 100%;
+        font-size: 13px;
+        padding: 10px 6px;
+        gap: 6px;
+        position: relative;
+        justify-content: center;
+    }
+    #menu-reparaciones { padding-right: 24px; }
+    .menu-btn-icon { display: none; }
+    .menu-btn-badge {
+        position: absolute;
+        top: 3px;
+        right: 3px;
+        min-width: 16px;
+        height: 16px;
+        font-size: 9px;
+        padding: 0 4px;
+    }
     .panel-ingreso { padding: 16px; }
+    .cobrar-fila { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; max-width: none; }
+    .cobrar-bloque { max-width: none; }
+    #venta-cantidad, #venta-descripcion, #venta-importe { font-size: 15px; padding: 9px; }
     .caja-grid { grid-template-columns: 1fr; }
     .fila-input { gap: 8px; }
     .fila-input input { flex: 1 1 100%; min-width: 100%; }
@@ -160,4 +229,5 @@ input, select { flex: 1; padding: 10px; margin: 6px 0; border-radius: 6px; borde
     .respaldo-bottom { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .respaldo-bottom .btn-respaldo { min-width: 0; }
     .btn-guardar-fijo, #btn-tomar-fotos { font-size: 15px; }
+    .pie-credito { margin-top: 20px; font-size: 12px; }
 }

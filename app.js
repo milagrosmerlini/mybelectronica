@@ -17,11 +17,15 @@ const menuBadgeReparaciones = document.getElementById('menu-badge-reparaciones')
 const vistaCobrar = document.getElementById('vista-cobrar');
 const vistaReparaciones = document.getElementById('vista-reparaciones');
 const vistaCaja = document.getElementById('vista-caja');
+const ventaCantidad = document.getElementById('venta-cantidad');
 const ventaDescripcion = document.getElementById('venta-descripcion');
 const listaArticulos = document.getElementById('lista-articulos');
 const descripcionWrap = document.querySelector('.descripcion-wrap');
 const ventaImporte = document.getElementById('venta-importe');
+const btnAgregarItem = document.getElementById('btn-agregar-item');
 const btnRegistrarVenta = document.getElementById('btn-registrar-venta');
+const tablaItemsBody = document.getElementById('tabla-items-body');
+const tablaTotalGeneralValor = document.getElementById('tabla-total-general-valor');
 const totalCobrarNegocio = document.getElementById('total-cobrar-negocio');
 const totalCajaNegocio = document.getElementById('total-caja-negocio');
 const totalCajaReparaciones = document.getElementById('total-caja-reparaciones');
@@ -82,8 +86,13 @@ let cajaState = {
     historialReparaciones: []
 };
 let catalogoArticulos = [];
-const CATALOGO_ARTICULOS_URL = './articulos-nombres.json?v=20260519-menu7';
+const CATALOGO_ARTICULOS_URL = './articulos-nombres.json?v=20260519-menu11';
 const OPCIONES_BASE_DESCRIPCION = ['CONSUMIDOR FINAL', '+AGREGAR DESCRIPCIÓN'];
+let itemsVentaActual = [];
+const cajaVista = {
+    negocio: { mostrarTodosLosDias: false, diaSeleccionado: null },
+    reparaciones: { mostrarTodosLosDias: false, diaSeleccionado: null }
+};
 
 btnTomarFotos.addEventListener('click', () => fotoInput.click());
 
@@ -238,6 +247,74 @@ function formatearNumeroEntero(valor) {
     return n.toLocaleString('es-AR');
 }
 
+function limpiarCantidadEntera(raw) {
+    const limpio = String(raw || '').replace(/\D/g, '');
+    if (!limpio) return 0;
+    return Number(limpio);
+}
+
+function totalItemsVenta() {
+    return itemsVentaActual.reduce((acc, it) => acc + ((it.cantidad || 0) * (it.precioUnitario || 0)), 0);
+}
+
+function dibujarTablaItemsVenta() {
+    if (!tablaItemsBody) return;
+
+    if (!itemsVentaActual.length) {
+        tablaItemsBody.innerHTML = '<tr class="tabla-items-vacio"><td colspan="4">Todavia no agregaste items.</td></tr>';
+        if (tablaTotalGeneralValor) tablaTotalGeneralValor.textContent = '0';
+        return;
+    }
+
+    tablaItemsBody.innerHTML = itemsVentaActual
+        .map((it) => {
+            const total = (it.cantidad || 0) * (it.precioUnitario || 0);
+            return (
+                `<tr>` +
+                    `<td>${formatearNumeroEntero(it.cantidad)}</td>` +
+                    `<td>${it.descripcion}</td>` +
+                    `<td>$${formatearNumeroEntero(it.precioUnitario)}</td>` +
+                    `<td>$${formatearNumeroEntero(total)}</td>` +
+                `</tr>`
+            );
+        })
+        .join('');
+
+    if (tablaTotalGeneralValor) tablaTotalGeneralValor.textContent = formatearNumeroEntero(totalItemsVenta());
+}
+
+function limpiarCamposItemVenta() {
+    if (ventaCantidad) ventaCantidad.value = '';
+    if (ventaDescripcion) ventaDescripcion.value = '';
+    if (ventaImporte) ventaImporte.value = '';
+}
+
+function intentarConstruirItemDesdeInputs() {
+    const cantidadInput = limpiarCantidadEntera(ventaCantidad ? ventaCantidad.value : '');
+    const descripcionInput = String(ventaDescripcion ? ventaDescripcion.value : '').trim();
+    const precioUnitario = limpiarImporteEntero(ventaImporte ? ventaImporte.value : '');
+
+    if (!precioUnitario) return null;
+
+    const cantidad = cantidadInput || 1;
+    const descripcion = descripcionInput || 'CONSUMIDOR FINAL';
+    return { cantidad, descripcion, precioUnitario };
+}
+
+function agregarItemDesdeInputs() {
+    const item = intentarConstruirItemDesdeInputs();
+    if (!item) {
+        alert('Completa el precio unitario para agregar el item.');
+        return false;
+    }
+
+    itemsVentaActual.push(item);
+    dibujarTablaItemsVenta();
+    limpiarCamposItemVenta();
+    if (ventaCantidad) ventaCantidad.focus();
+    return true;
+}
+
 function formatearFechaMov(fechaIso) {
     if (!fechaIso) return '';
     const fecha = new Date(fechaIso);
@@ -249,6 +326,58 @@ function formatearFechaMov(fechaIso) {
         hour: '2-digit',
         minute: '2-digit'
     });
+}
+
+function formatearFechaDia(fechaIso) {
+    if (!fechaIso) return '';
+    const fecha = new Date(fechaIso);
+    if (Number.isNaN(fecha.getTime())) return '';
+    return fecha.toLocaleDateString('es-AR', {
+        weekday: 'short',
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric'
+    });
+}
+
+function claveDiaLocal(fechaIso) {
+    const fecha = new Date(fechaIso);
+    if (Number.isNaN(fecha.getTime())) return '';
+    const y = fecha.getFullYear();
+    const m = String(fecha.getMonth() + 1).padStart(2, '0');
+    const d = String(fecha.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+}
+
+function agruparMovimientosPorDia(items) {
+    const mapa = new Map();
+    for (const item of (Array.isArray(items) ? items : [])) {
+        const fechaIso = item && item.fecha ? item.fecha : '';
+        const key = claveDiaLocal(fechaIso);
+        if (!key) continue;
+        if (!mapa.has(key)) {
+            mapa.set(key, {
+                key,
+                fechaIso,
+                total: 0,
+                cantidad: 0,
+                items: []
+            });
+        }
+        const grp = mapa.get(key);
+        const importe = Number(item && item.importe ? item.importe : 0);
+        grp.total += importe;
+        grp.cantidad += 1;
+        grp.items.push(item);
+    }
+
+    const grupos = Array.from(mapa.values());
+    for (const grp of grupos) {
+        grp.items.sort((a, b) => String(b.fecha || '').localeCompare(String(a.fecha || '')));
+        grp.label = formatearFechaDia(grp.fechaIso);
+    }
+    grupos.sort((a, b) => b.key.localeCompare(a.key));
+    return grupos;
 }
 
 function normalizarTextoBusqueda(texto) {
@@ -323,30 +452,97 @@ async function cargarCatalogoArticulos() {
     }
 }
 
-function dibujarHistorialCaja(contenedor, items, textoVacio) {
+function dibujarHistorialCaja(contenedor, items, textoVacio, tipoCaja) {
     if (!contenedor) return;
+    contenedor.innerHTML = '';
     if (!Array.isArray(items) || items.length === 0) {
         contenedor.innerHTML = `<div class="historial-item-vacio">${textoVacio}</div>`;
         return;
     }
 
-    contenedor.innerHTML = items
-        .slice(0, 50)
-        .map((item) => {
+    const vista = cajaVista[tipoCaja];
+    if (!vista) return;
+
+    const grupos = agruparMovimientosPorDia(items);
+    if (!grupos.length) {
+        contenedor.innerHTML = `<div class="historial-item-vacio">${textoVacio}</div>`;
+        return;
+    }
+
+    const grupoSeleccionado = vista.diaSeleccionado
+        ? grupos.find((g) => g.key === vista.diaSeleccionado)
+        : null;
+
+    if (grupoSeleccionado) {
+        const topBtn = document.createElement('button');
+        topBtn.type = 'button';
+        topBtn.className = 'historial-toggle-btn';
+        topBtn.textContent = 'Ver menos';
+        topBtn.addEventListener('click', () => {
+            vista.diaSeleccionado = null;
+            renderCaja();
+        });
+        contenedor.appendChild(topBtn);
+
+        const titulo = document.createElement('div');
+        titulo.className = 'historial-dia-titulo';
+        titulo.textContent = `${grupoSeleccionado.label} - ${grupoSeleccionado.cantidad} venta(s)`;
+        contenedor.appendChild(titulo);
+
+        for (const item of grupoSeleccionado.items) {
             const descripcion = item && item.descripcion ? item.descripcion : 'Sin descripcion';
             const monto = formatearNumeroEntero(item && item.importe ? item.importe : 0);
             const fecha = formatearFechaMov(item && item.fecha ? item.fecha : '');
-            return (
-                `<div class="historial-item">` +
-                    `<div class="historial-item-top">` +
-                        `<span class="historial-item-monto">+$${monto}</span>` +
-                        `<span class="historial-item-fecha">${fecha}</span>` +
-                    `</div>` +
-                    `<div class="historial-item-descripcion">${descripcion}</div>` +
-                `</div>`
-            );
-        })
-        .join('');
+
+            const row = document.createElement('div');
+            row.className = 'historial-item';
+            row.innerHTML =
+                `<div class="historial-item-top">` +
+                    `<span class="historial-item-monto">+$${monto}</span>` +
+                    `<span class="historial-item-fecha">${fecha}</span>` +
+                `</div>` +
+                `<div class="historial-item-descripcion">${descripcion}</div>`;
+            contenedor.appendChild(row);
+        }
+
+        const bottomBtn = document.createElement('button');
+        bottomBtn.type = 'button';
+        bottomBtn.className = 'historial-toggle-btn';
+        bottomBtn.textContent = 'Ver menos';
+        bottomBtn.addEventListener('click', () => {
+            vista.diaSeleccionado = null;
+            renderCaja();
+        });
+        contenedor.appendChild(bottomBtn);
+        return;
+    }
+
+    const gruposVisibles = vista.mostrarTodosLosDias ? grupos : grupos.slice(0, 2);
+    for (const grp of gruposVisibles) {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'historial-dia-btn';
+        btn.innerHTML =
+            `<span class="historial-dia-fecha">${grp.label}</span>` +
+            `<span class="historial-dia-resumen">${grp.cantidad} venta(s) - $${formatearNumeroEntero(grp.total)}</span>`;
+        btn.addEventListener('click', () => {
+            vista.diaSeleccionado = grp.key;
+            renderCaja();
+        });
+        contenedor.appendChild(btn);
+    }
+
+    if (grupos.length > 2) {
+        const btnMas = document.createElement('button');
+        btnMas.type = 'button';
+        btnMas.className = 'historial-toggle-btn';
+        btnMas.textContent = vista.mostrarTodosLosDias ? 'Ver menos dias' : 'Ver mas';
+        btnMas.addEventListener('click', () => {
+            vista.mostrarTodosLosDias = !vista.mostrarTodosLosDias;
+            renderCaja();
+        });
+        contenedor.appendChild(btnMas);
+    }
 }
 
 function renderCaja() {
@@ -354,9 +550,9 @@ function renderCaja() {
     if (totalCajaNegocio) totalCajaNegocio.textContent = formatearNumeroEntero(cajaState.cajaNegocioTotal);
     if (totalCajaReparaciones) totalCajaReparaciones.textContent = formatearNumeroEntero(cajaState.cajaReparacionesTotal);
 
-    dibujarHistorialCaja(historialCobrarNegocio, cajaState.historialNegocio, 'Todavia no hay ventas registradas.');
-    dibujarHistorialCaja(historialCajaNegocio, cajaState.historialNegocio, 'Todavia no hay movimientos en Caja Negocio.');
-    dibujarHistorialCaja(historialCajaReparaciones, cajaState.historialReparaciones, 'Todavia no hay movimientos en Caja Reparaciones.');
+    dibujarHistorialCaja(historialCobrarNegocio, cajaState.historialNegocio, 'Todavia no hay ventas registradas.', 'negocio');
+    dibujarHistorialCaja(historialCajaNegocio, cajaState.historialNegocio, 'Todavia no hay movimientos en Caja Negocio.', 'negocio');
+    dibujarHistorialCaja(historialCajaReparaciones, cajaState.historialReparaciones, 'Todavia no hay movimientos en Caja Reparaciones.', 'reparaciones');
 }
 
 async function cargarCaja() {
@@ -1001,22 +1197,36 @@ document.addEventListener('pointerdown', (event) => {
     }
 });
 
+ventaCantidad.addEventListener('input', () => {
+    const n = limpiarCantidadEntera(ventaCantidad.value);
+    ventaCantidad.value = n ? String(n) : '';
+});
+
 ventaImporte.addEventListener('input', () => {
     const n = limpiarImporteEntero(ventaImporte.value);
     ventaImporte.value = n ? formatearNumeroEntero(n) : '';
 });
 
+btnAgregarItem.addEventListener('click', () => {
+    agregarItemDesdeInputs();
+});
+
 btnRegistrarVenta.addEventListener('click', async () => {
-    const descripcion = String(ventaDescripcion.value || '').trim();
-    const importe = limpiarImporteEntero(ventaImporte.value);
-    if (!descripcion) {
-        alert('Escribe una descripcion para registrar la venta.');
+    const posibleItem = intentarConstruirItemDesdeInputs();
+    if (posibleItem) {
+        itemsVentaActual.push(posibleItem);
+        limpiarCamposItemVenta();
+    }
+
+    if (!itemsVentaActual.length) {
+        alert('Agrega al menos un item para registrar la venta.');
         return;
     }
-    if (!importe) {
-        alert('Escribe un importe valido para registrar la venta.');
-        return;
-    }
+
+    const importe = totalItemsVenta();
+    const descripcion = itemsVentaActual
+        .map((it) => `${it.cantidad}x ${it.descripcion}`)
+        .join(' | ');
 
     await agregarMovimientoCaja({
         caja: 'negocio',
@@ -1025,9 +1235,10 @@ btnRegistrarVenta.addEventListener('click', async () => {
         origen: 'venta'
     });
 
-    ventaDescripcion.value = '';
-    ventaImporte.value = '';
-    alert('Venta registrada en Caja Negocio.');
+    itemsVentaActual = [];
+    limpiarCamposItemVenta();
+    dibujarTablaItemsVenta();
+    listaArticulos.classList.add('hidden');
 });
 
 btnExport.addEventListener('click', async () => {
@@ -1068,6 +1279,7 @@ buscar.addEventListener('input', () => dibujarLista());
 btnRefrescar.addEventListener('click', () => fetchAndRender());
 
 intentarPersistenciaStorage();
+dibujarTablaItemsVenta();
 mostrarSeccion('cobrar');
 cargarCaja();
 cargarCatalogoArticulos();

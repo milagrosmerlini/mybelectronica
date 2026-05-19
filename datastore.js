@@ -9,6 +9,7 @@ const SUPABASE_DEFAULT_ORDERS_TABLE = 'myb_orders';
 const SUPABASE_DEFAULT_PHOTOS_TABLE = 'myb_photos';
 const SUPABASE_DEFAULT_META_TABLE = 'myb_meta';
 let warnedInvalidSupabaseConfig = false;
+let pendingCloudResync = false;
 
 function getSafeLocalStorageValue(key) {
   try {
@@ -102,6 +103,20 @@ function normalizarFinanceState(raw) {
   };
 }
 
+function recalcularTotalesFinanceState(state) {
+  const cur = normalizarFinanceState(state || {});
+  cur.cajaNegocioTotal = cur.historialNegocio.reduce((acc, it) => acc + normalizarNumero(it && it.importe), 0);
+  cur.cajaReparacionesTotal = cur.historialReparaciones.reduce((acc, it) => acc + normalizarNumero(it && it.importe), 0);
+  return cur;
+}
+
+function obtenerListaFinancePorCaja(state, caja) {
+  if (caja === 'reparaciones') {
+    return { key: 'historialReparaciones', items: state.historialReparaciones };
+  }
+  return { key: 'historialNegocio', items: state.historialNegocio };
+}
+
 async function blobToDataUrl(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -172,7 +187,13 @@ async function supabaseRequest(path, options = {}) {
   }
 
   const url = `${cfg.url}/rest/v1/${path}`;
-  const response = await fetch(url, init);
+  let response;
+  try {
+    response = await fetch(url, init);
+  } catch (err) {
+    const detalle = err && err.message ? String(err.message) : 'Fallo de red al contactar Supabase.';
+    throw new Error(`No se pudo conectar con Supabase. ${detalle}`);
+  }
   const raw = await response.text();
 
   let data = null;
@@ -207,8 +228,10 @@ function ordenarOrdersDesc(items) {
 
 async function cloudGetOrders() {
   const cfg = getCloudConfig();
-  const rowsOrders = await supabaseRequest(`${cfg.ordersTable}?select=id,payload`);
-  const rowsPhotos = await supabaseRequest(`${cfg.photosTable}?select=id,order_id,name,data_url`);
+  const [rowsOrders, rowsPhotos] = await Promise.all([
+    supabaseRequest(`${cfg.ordersTable}?select=id,payload`),
+    supabaseRequest(`${cfg.photosTable}?select=id,order_id,name,data_url`)
+  ]);
 
   const fotosPorOrden = new Map();
   for (const p of (rowsPhotos || [])) {
@@ -362,7 +385,7 @@ async function cloudGetFinanceState() {
 }
 
 async function cloudAppendFinanceMovement(movement) {
-  const cur = await cloudGetFinanceState();
+  const cur = recalcularTotalesFinanceState(await cloudGetFinanceState());
   const importe = normalizarNumero(movement && movement.importe);
 
   if (!importe) {
@@ -371,7 +394,7 @@ async function cloudAppendFinanceMovement(movement) {
   }
 
   const item = {
-    id: `mov_${Date.now()}_${Math.random().toString(16).slice(2, 8)}`,
+    id: movement && movement.id ? String(movement.id) : `mov_${Date.now()}_${Math.random().toString(16).slice(2, 8)}`,
     fecha: new Date().toISOString(),
     descripcion: String((movement && movement.descripcion) || '').trim(),
     importe,
@@ -389,6 +412,92 @@ async function cloudAppendFinanceMovement(movement) {
 
   await cloudSetMetaValue(FINANCE_KEY, cur);
   return item;
+}
+
+async function cloudUpdateFinanceMovement(movement) {
+  const cur = recalcularTotalesFinanceState(await cloudGetFinanceState());
+  const caja = movement && movement.caja === 'reparaciones' ? 'reparaciones' : 'negocio';
+  const id = String((movement && movement.id) || '').trim();
+  if (!id) throw new Error('Movimiento invalido: falta id.');
+
+  const listaRef = obtenerListaFinancePorCaja(cur, caja);
+  const idx = listaRef.items.findIndex((it) => String((it && it.id) || '') === id);
+  if (idx < 0) throw new Error('No se encontro el movimiento para editar.');
+
+  const actual = listaRef.items[idx];
+  const nuevoImporte = normalizarNumero(movement && movement.importe);
+  if (!nuevoImporte) throw new Error('El importe debe ser mayor que 0.');
+
+  const nuevaDescripcion = String((movement && movement.descripcion) || '').trim() || 'Sin descripcion';
+  listaRef.items[idx] = Object.assign({}, actual, {
+    descripcion: nuevaDescripcion,
+    importe: nuevoImporte
+  });
+
+  const actualizado = recalcularTotalesFinanceState(cur);
+  await cloudSetMetaValue(FINANCE_KEY, actualizado);
+  return listaRef.items[idx];
+}
+
+async function cloudDeleteFinanceMovement(movement) {
+  const cur = recalcularTotalesFinanceState(await cloudGetFinanceState());
+  const caja = movement && movement.caja === 'reparaciones' ? 'reparaciones' : 'negocio';
+  const id = String((movement && movement.id) || '').trim();
+  if (!id) throw new Error('Movimiento invalido: falta id.');
+
+  const listaRef = obtenerListaFinancePorCaja(cur, caja);
+  const before = listaRef.items.length;
+  listaRef.items = listaRef.items.filter((it) => String((it && it.id) || '') !== id);
+  cur[listaRef.key] = listaRef.items;
+
+  if (listaRef.items.length === before) {
+    throw new Error('No se encontro el movimiento para eliminar.');
+  }
+
+  const actualizado = recalcularTotalesFinanceState(cur);
+  await cloudSetMetaValue(FINANCE_KEY, actualizado);
+  return true;
+}
+
+async function cloudReplaceAllFromLocal() {
+  const cfg = getCloudConfig();
+  const orders = await localExportAll();
+  const finance = await localGetFinanceState();
+
+  await supabaseRequest(`${cfg.photosTable}?id=not.is.null`, {
+    method: 'DELETE',
+    headers: { Prefer: 'return=minimal' }
+  });
+
+  await supabaseRequest(`${cfg.ordersTable}?id=not.is.null`, {
+    method: 'DELETE',
+    headers: { Prefer: 'return=minimal' }
+  });
+
+  if (orders.length) {
+    await cloudImportFromArray(orders);
+  }
+  await cloudSetMetaValue(FINANCE_KEY, finance);
+}
+
+async function syncCloudAfterLocal(opName, cloudOp) {
+  if (!usarCloud()) return false;
+  try {
+    if (pendingCloudResync) {
+      await cloudReplaceAllFromLocal();
+      pendingCloudResync = false;
+      return true;
+    }
+    if (typeof cloudOp === 'function') {
+      await cloudOp();
+    }
+    return true;
+  } catch (err) {
+    pendingCloudResync = true;
+    const detalle = err && err.message ? String(err.message) : String(err || 'error desconocido');
+    console.warn(`No se pudo sincronizar con Supabase (${opName}). Queda pendiente reintento.`, detalle);
+    return false;
+  }
 }
 
 function openDB() {
@@ -616,7 +725,7 @@ async function localAppendFinanceMovement(movement) {
       }
 
       const item = {
-        id: `mov_${Date.now()}_${Math.random().toString(16).slice(2, 8)}`,
+        id: movement && movement.id ? String(movement.id) : `mov_${Date.now()}_${Math.random().toString(16).slice(2, 8)}`,
         fecha: new Date().toISOString(),
         descripcion: String((movement && movement.descripcion) || '').trim(),
         importe,
@@ -645,48 +754,186 @@ async function localAppendFinanceMovement(movement) {
   });
 }
 
+async function localUpdateFinanceMovement(movement) {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_META, 'readwrite');
+    const store = tx.objectStore(STORE_META);
+    const req = store.get(FINANCE_KEY);
+
+    req.onsuccess = () => {
+      const curRaw = req.result && req.result.value ? req.result.value : {};
+      const cur = recalcularTotalesFinanceState(curRaw);
+      const caja = movement && movement.caja === 'reparaciones' ? 'reparaciones' : 'negocio';
+      const id = String((movement && movement.id) || '').trim();
+      if (!id) {
+        reject(new Error('Movimiento invalido: falta id.'));
+        return;
+      }
+
+      const listaRef = obtenerListaFinancePorCaja(cur, caja);
+      const idx = listaRef.items.findIndex((it) => String((it && it.id) || '') === id);
+      if (idx < 0) {
+        reject(new Error('No se encontro el movimiento para editar.'));
+        return;
+      }
+
+      const actual = listaRef.items[idx];
+      const nuevoImporte = normalizarNumero(movement && movement.importe);
+      if (!nuevoImporte) {
+        reject(new Error('El importe debe ser mayor que 0.'));
+        return;
+      }
+
+      const nuevaDescripcion = String((movement && movement.descripcion) || '').trim() || 'Sin descripcion';
+      listaRef.items[idx] = Object.assign({}, actual, {
+        descripcion: nuevaDescripcion,
+        importe: nuevoImporte
+      });
+
+      const actualizado = recalcularTotalesFinanceState(cur);
+      store.put({ key: FINANCE_KEY, value: actualizado });
+      resolve(listaRef.items[idx]);
+    };
+
+    req.onerror = () => reject(req.error);
+    tx.oncomplete = () => db.close();
+    tx.onerror = () => {
+      db.close();
+      reject(tx.error);
+    };
+  });
+}
+
+async function localDeleteFinanceMovement(movement) {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_META, 'readwrite');
+    const store = tx.objectStore(STORE_META);
+    const req = store.get(FINANCE_KEY);
+
+    req.onsuccess = () => {
+      const curRaw = req.result && req.result.value ? req.result.value : {};
+      const cur = recalcularTotalesFinanceState(curRaw);
+      const caja = movement && movement.caja === 'reparaciones' ? 'reparaciones' : 'negocio';
+      const id = String((movement && movement.id) || '').trim();
+      if (!id) {
+        reject(new Error('Movimiento invalido: falta id.'));
+        return;
+      }
+
+      const listaRef = obtenerListaFinancePorCaja(cur, caja);
+      const before = listaRef.items.length;
+      listaRef.items = listaRef.items.filter((it) => String((it && it.id) || '') !== id);
+      cur[listaRef.key] = listaRef.items;
+
+      if (listaRef.items.length === before) {
+        reject(new Error('No se encontro el movimiento para eliminar.'));
+        return;
+      }
+
+      const actualizado = recalcularTotalesFinanceState(cur);
+      store.put({ key: FINANCE_KEY, value: actualizado });
+      resolve(true);
+    };
+
+    req.onerror = () => reject(req.error);
+    tx.oncomplete = () => db.close();
+    tx.onerror = () => {
+      db.close();
+      reject(tx.error);
+    };
+  });
+}
+
 function usarCloud() {
   return getCloudConfig().enabled;
 }
 
+function getStorageModeInfo() {
+  const cfg = getCloudConfig();
+  return {
+    mode: cfg.enabled ? 'local_with_cloud_sync' : 'local',
+    reason: cfg.enabled ? null : 'supabase_config_invalid',
+    pendingCloudResync,
+    url: cfg.url || '',
+    ordersTable: cfg.ordersTable,
+    photosTable: cfg.photosTable,
+    metaTable: cfg.metaTable
+  };
+}
+
 async function addOrder(order, photoEntries) {
-  if (usarCloud()) return cloudAddOrder(order, photoEntries);
-  return localAddOrder(order, photoEntries);
+  const localSaved = await localAddOrder(order, photoEntries);
+  await syncCloudAfterLocal('addOrder', async () => {
+    await cloudAddOrder(order, photoEntries);
+  });
+  return localSaved;
 }
 
 async function updateOrder(id, updates) {
-  if (usarCloud()) return cloudUpdateOrder(id, updates);
-  return localUpdateOrder(id, updates);
+  const localSaved = await localUpdateOrder(id, updates);
+  await syncCloudAfterLocal('updateOrder', async () => {
+    await cloudUpdateOrder(id, updates);
+  });
+  return localSaved;
 }
 
 async function deleteOrder(id) {
-  if (usarCloud()) return cloudDeleteOrder(id);
-  return localDeleteOrder(id);
+  const localSaved = await localDeleteOrder(id);
+  await syncCloudAfterLocal('deleteOrder', async () => {
+    await cloudDeleteOrder(id);
+  });
+  return localSaved;
 }
 
 async function getOrders() {
-  if (usarCloud()) return cloudGetOrders();
   return localGetOrders();
 }
 
 async function exportAll() {
-  if (usarCloud()) return cloudExportAll();
   return localExportAll();
 }
 
 async function importFromArray(arr) {
-  if (usarCloud()) return cloudImportFromArray(arr);
-  return localImportFromArray(arr);
+  const localSaved = await localImportFromArray(arr);
+  await syncCloudAfterLocal('importFromArray', async () => {
+    await cloudImportFromArray(arr);
+  });
+  return localSaved;
 }
 
 async function getFinanceState() {
-  if (usarCloud()) return cloudGetFinanceState();
   return localGetFinanceState();
 }
 
 async function appendFinanceMovement(movement) {
-  if (usarCloud()) return cloudAppendFinanceMovement(movement);
-  return localAppendFinanceMovement(movement);
+  const movId = movement && movement.id
+    ? String(movement.id)
+    : `mov_${Date.now()}_${Math.random().toString(16).slice(2, 8)}`;
+  const payload = Object.assign({}, movement || {}, { id: movId });
+
+  const localSaved = await localAppendFinanceMovement(payload);
+  await syncCloudAfterLocal('appendFinanceMovement', async () => {
+    await cloudAppendFinanceMovement(payload);
+  });
+  return localSaved;
+}
+
+async function updateFinanceMovement(movement) {
+  const localSaved = await localUpdateFinanceMovement(movement);
+  await syncCloudAfterLocal('updateFinanceMovement', async () => {
+    await cloudUpdateFinanceMovement(movement);
+  });
+  return localSaved;
+}
+
+async function deleteFinanceMovement(movement) {
+  const localSaved = await localDeleteFinanceMovement(movement);
+  await syncCloudAfterLocal('deleteFinanceMovement', async () => {
+    await cloudDeleteFinanceMovement(movement);
+  });
+  return localSaved;
 }
 
 export default {
@@ -698,5 +945,8 @@ export default {
   importFromArray,
   getFinanceState,
   appendFinanceMovement,
+  updateFinanceMovement,
+  deleteFinanceMovement,
+  getStorageModeInfo,
   openDB
 };

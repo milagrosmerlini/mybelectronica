@@ -1,11 +1,11 @@
-const CACHE_NAME = 'myb-electronica-cache-v35';
+const CACHE_NAME = 'myb-electronica-cache-v38';
 const APP_SHELL = [
     '/',
     '/index.html',
-    '/styles.css?v=20260519-menu19',
-    '/app.js?v=20260519-menu18',
-    '/datastore.js?v=20260519-cloud1',
-    '/supabase-config.js?v=20260519-cloud1',
+    '/styles.css?v=20260519-menu20',
+    '/app.js?v=20260519-menu21',
+    '/datastore.js?v=20260519-cloud4',
+    '/supabase-config.js?v=20260519-cloud3',
     '/articulos-nombres.json?v=20260519-menu11',
     '/manifest.webmanifest',
     '/icons/icon-192.png',
@@ -81,3 +81,4 @@ self.addEventListener('fetch', (event) => {
         }
     })());
 });
+

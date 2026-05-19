@@ -7,6 +7,16 @@ h2, h3 { text-align: center; color: #1a252f; }
 .brand-texto { display: flex; flex-direction: column; line-height: 1.1; align-items: center; text-align: center; margin: 0 auto; }
 .brand-titulo { font-size: 24px; font-weight: 700; color: #1a252f; }
 .brand-subtitulo { font-size: 17px; font-weight: 600; color: #2f3e4d; margin-top: 4px; }
+.data-source-status {
+    margin: -4px 0 12px;
+    text-align: center;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.2px;
+    color: #334155;
+}
+.data-source-status.mode-cloud { color: #065f46; }
+.data-source-status.mode-local { color: #b45309; }
 .menu-principal {
     display: flex;
     align-items: stretch;
@@ -77,10 +87,17 @@ h2, h3 { text-align: center; color: #1a252f; }
 .historial-item { background: #fff; border: 1px solid #e3e7ec; border-radius: 6px; padding: 8px; margin-bottom: 6px; font-size: 13px; }
 .historial-item:last-child { margin-bottom: 0; }
 .historial-item-vacio { font-size: 13px; color: #6f7b87; text-align: center; padding: 10px 4px; }
+.historial-item { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
+.historial-item-content { min-width: 0; flex: 1; }
 .historial-item-top { display: flex; justify-content: space-between; gap: 8px; margin-bottom: 4px; }
 .historial-item-monto { font-weight: 700; color: #2b8a3e; }
 .historial-item-fecha { color: #6f7b87; font-size: 12px; }
 .historial-item-descripcion { color: #1f2937; font-weight: 600; }
+.historial-item-actions { display: flex; align-items: center; gap: 6px; }
+.historial-item-btn { width: 30px; height: 30px; border: 1px solid #cfd8e3; border-radius: 7px; background: #fff; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; font-size: 15px; line-height: 1; }
+.historial-item-btn-edit { color: #1f2937; }
+.historial-item-btn-delete { color: #d62828; border-color: #f3b2b2; background: #fff5f5; }
+.historial-item-btn:active { transform: scale(0.97); }
 .historial-dia-btn { width: 100%; border: 1px solid #dde3ea; border-radius: 8px; background: #ffffff; color: #1f2937; text-align: left; padding: 10px; margin-bottom: 6px; cursor: pointer; }
 .historial-dia-fecha { display: block; font-weight: 700; font-size: 13px; }
 .historial-dia-resumen { display: block; margin-top: 2px; font-size: 12px; color: #4f5f70; }
@@ -237,6 +254,7 @@ button, .btn-flujo, .btn-secundario-fijo, .btn-guardar-fijo, .menu-btn { touch-a
     .brand-logo { width: 56px; height: 56px; }
     .brand-titulo { font-size: 20px; }
     .brand-subtitulo { font-size: 15px; }
+    .data-source-status { margin: -2px 0 10px; font-size: 11px; }
     .menu-principal {
         display: grid;
         grid-template-columns: minmax(0, 1fr) minmax(0, 1.16fr) minmax(0, 1fr);

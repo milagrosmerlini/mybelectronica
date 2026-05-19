@@ -1,4 +1,4 @@
-ï»¿import datastore from './datastore.js?v=20260519-cloud1';
+import datastore from './datastore.js?v=20260519-cloud4';
 
 const lista = document.getElementById('listaReparaciones');
 const fotoInput = document.getElementById('fotoInput');
@@ -53,6 +53,7 @@ const viewerNext = document.getElementById('viewerNext');
 const viewerImage = document.getElementById('viewerImage');
 const viewerIndex = document.getElementById('viewerIndex');
 const viewerTotal = document.getElementById('viewerTotal');
+const dataSourceStatus = document.getElementById('data-source-status');
 
 let fotosTemporalesIngreso = [];
 let reparaciones = [];
@@ -88,13 +89,45 @@ let cajaState = {
 };
 let catalogoArticulos = [];
 const CATALOGO_ARTICULOS_URL = './articulos-nombres.json?v=20260519-menu11';
-const OPCIONES_BASE_DESCRIPCION = ['Consumidor final', '+Agregar descripciÃ³n'];
+const OPCIONES_BASE_DESCRIPCION = ['Consumidor final', '+Agregar descripción'];
 let itemsVentaActual = [];
 let totalVentaManualOverride = null;
 const cajaVista = {
     negocio: { mostrarTodosLosDias: false, diaSeleccionado: null },
     reparaciones: { mostrarTodosLosDias: false, diaSeleccionado: null }
 };
+
+function obtenerMensajeError(err) {
+    return String(err && (err.message || err.name || err) || 'Error desconocido.');
+}
+
+function actualizarIndicadorOrigenDatos() {
+    if (!dataSourceStatus || typeof datastore.getStorageModeInfo !== 'function') return;
+
+    const info = datastore.getStorageModeInfo();
+    const modoSync = info && info.mode === 'local_with_cloud_sync';
+    const modoCloud = modoSync;
+    const etiqueta = modoSync
+        ? 'LOCAL + SYNC SUPABASE'
+        : 'LOCAL (solo este dispositivo)';
+
+    dataSourceStatus.textContent = `Datos: ${etiqueta}`;
+    dataSourceStatus.classList.toggle('mode-cloud', modoCloud);
+    dataSourceStatus.classList.toggle('mode-local', !modoCloud);
+}
+
+async function fetchAndRenderSafe(contexto = 'sincronizar ordenes') {
+    try {
+        await fetchAndRender();
+        return true;
+    } catch (err) {
+        actualizarIndicadorOrigenDatos();
+        const msg = obtenerMensajeError(err);
+        console.error(`Error al ${contexto}:`, err);
+        alert(`No se pudo ${contexto}. ${msg}`);
+        return false;
+    }
+}
 
 btnTomarFotos.addEventListener('click', () => fotoInput.click());
 
@@ -163,7 +196,7 @@ function normalizarEstado(estado) {
     const v = String(estado || '').toLowerCase();
     if (v === 'aceptada') return 'Aceptada';
     if (v === 'presupuestada') return 'Presupuestada';
-    if (v === 'en reparacion' || v === 'en reparaciÃ³n') return 'En ReparaciÃ³n';
+    if (v === 'en reparacion' || v === 'en reparación') return 'En Reparación';
     if (v === 'terminada') return 'Terminada';
     if (v === 'archivada') return 'Archivada';
     return 'Aceptada';
@@ -432,7 +465,7 @@ function actualizarSugerenciasDescripcion() {
             if ((starts.length + contains.length) >= maxSugerencias) break;
         }
         opciones = starts.concat(contains).slice(0, maxSugerencias);
-        if (!opciones.length) opciones = ['+Agregar descripciÃ³n'];
+        if (!opciones.length) opciones = ['+Agregar descripción'];
     }
 
     listaArticulos.innerHTML = '';
@@ -443,7 +476,7 @@ function actualizarSugerenciasDescripcion() {
         item.textContent = op;
         item.addEventListener('mousedown', (event) => event.preventDefault());
         item.addEventListener('click', () => {
-            if (op === '+Agregar descripciÃ³n') {
+            if (op === '+Agregar descripción') {
                 ventaDescripcion.value = '';
                 ventaDescripcion.focus();
                 actualizarSugerenciasDescripcion();
@@ -518,12 +551,42 @@ function dibujarHistorialCaja(contenedor, items, textoVacio, tipoCaja) {
 
             const row = document.createElement('div');
             row.className = 'historial-item';
-            row.innerHTML =
+            const contenido = document.createElement('div');
+            contenido.className = 'historial-item-content';
+            contenido.innerHTML =
                 `<div class="historial-item-top">` +
                     `<span class="historial-item-monto">+$${monto}</span>` +
                     `<span class="historial-item-fecha">${fecha}</span>` +
                 `</div>` +
                 `<div class="historial-item-descripcion">${descripcion}</div>`;
+
+            const acciones = document.createElement('div');
+            acciones.className = 'historial-item-actions';
+
+            const btnEditar = document.createElement('button');
+            btnEditar.type = 'button';
+            btnEditar.className = 'historial-item-btn historial-item-btn-edit';
+            btnEditar.textContent = '?';
+            btnEditar.title = 'Editar venta';
+            btnEditar.setAttribute('aria-label', 'Editar venta');
+            btnEditar.addEventListener('click', async () => {
+                await editarMovimientoCaja(tipoCaja, item);
+            });
+
+            const btnEliminar = document.createElement('button');
+            btnEliminar.type = 'button';
+            btnEliminar.className = 'historial-item-btn historial-item-btn-delete';
+            btnEliminar.textContent = '??';
+            btnEliminar.title = 'Eliminar venta';
+            btnEliminar.setAttribute('aria-label', 'Eliminar venta');
+            btnEliminar.addEventListener('click', async () => {
+                await eliminarMovimientoCaja(tipoCaja, item);
+            });
+
+            acciones.appendChild(btnEditar);
+            acciones.appendChild(btnEliminar);
+            row.appendChild(contenido);
+            row.appendChild(acciones);
             contenedor.appendChild(row);
         }
 
@@ -567,6 +630,62 @@ function dibujarHistorialCaja(contenedor, items, textoVacio, tipoCaja) {
     }
 }
 
+async function editarMovimientoCaja(caja, item) {
+    const id = String(item && item.id ? item.id : '').trim();
+    if (!id) {
+        alert('No se pudo editar: movimiento sin id.');
+        return;
+    }
+
+    const descripcionActual = String(item && item.descripcion ? item.descripcion : '');
+    const desc = prompt('Editar descripcion de la venta:', descripcionActual);
+    if (desc === null) return;
+
+    const importeActual = formatearNumeroEntero(item && item.importe ? item.importe : 0);
+    const impInput = prompt('Editar importe de la venta:', importeActual);
+    if (impInput === null) return;
+
+    const nuevoImporte = limpiarImporteEntero(impInput);
+    if (!nuevoImporte) {
+        alert('El importe debe ser mayor que 0.');
+        return;
+    }
+
+    try {
+        await datastore.updateFinanceMovement({
+            caja,
+            id,
+            descripcion: String(desc || '').trim() || 'Sin descripcion',
+            importe: nuevoImporte
+        });
+        await cargarCaja();
+    } catch (err) {
+        console.error('No se pudo editar la venta:', err);
+        const msg = String(err && (err.message || err.name || err));
+        alert('No se pudo editar la venta: ' + msg);
+    }
+}
+
+async function eliminarMovimientoCaja(caja, item) {
+    const id = String(item && item.id ? item.id : '').trim();
+    if (!id) {
+        alert('No se pudo eliminar: movimiento sin id.');
+        return;
+    }
+
+    const ok = confirm('¿Seguro que queres eliminar esta venta de caja?');
+    if (!ok) return;
+
+    try {
+        await datastore.deleteFinanceMovement({ caja, id });
+        await cargarCaja();
+    } catch (err) {
+        console.error('No se pudo eliminar la venta:', err);
+        const msg = String(err && (err.message || err.name || err));
+        alert('No se pudo eliminar la venta: ' + msg);
+    }
+}
+
 function renderCaja() {
     if (totalCobrarNegocio) totalCobrarNegocio.textContent = formatearNumeroEntero(cajaState.cajaNegocioTotal);
     if (totalCajaNegocio) totalCajaNegocio.textContent = formatearNumeroEntero(cajaState.cajaNegocioTotal);
@@ -593,6 +712,7 @@ async function cargarCaja() {
             historialNegocio: [],
             historialReparaciones: []
         };
+        console.error('No se pudo cargar caja:', _err);
     }
     renderCaja();
 }
@@ -629,6 +749,7 @@ function mostrarSeccion(nombre) {
 
 async function migrarOrdenesSiHaceFalta(items) {
     let maxNumerico = 0;
+    let huboCambios = false;
 
     for (const it of items) {
         const n = extraerNumeroOrden(it);
@@ -640,15 +761,20 @@ async function migrarOrdenesSiHaceFalta(items) {
         if (actual) {
             if (Number(it.idOrden) !== actual) {
                 await datastore.updateOrder(it.id, { idOrden: actual });
+                it.idOrden = actual;
+                huboCambios = true;
             }
             continue;
         }
 
         maxNumerico += 1;
         await datastore.updateOrder(it.id, { idOrden: maxNumerico });
+        it.idOrden = maxNumerico;
+        huboCambios = true;
     }
 
     proximoNumeroOrden = maxNumerico + 1;
+    return huboCambios;
 }
 
 async function fetchAndRender() {
@@ -657,9 +783,7 @@ async function fetchAndRender() {
     const normalizados = (items || []).map((it, idx) => normalizarOrden(it, idx));
 
     await migrarOrdenesSiHaceFalta(normalizados);
-
-    const refreshed = await datastore.getOrders();
-    reparaciones = (refreshed || []).map((it, idx) => normalizarOrden(it, idx));
+    reparaciones = normalizados;
     blobUrlsRenderizados = reparaciones
         .flatMap((r) => Array.isArray(r.fotos) ? r.fotos : [])
         .filter((url) => typeof url === 'string' && url.startsWith('blob:'));
@@ -682,7 +806,7 @@ function actualizarContadores() {
     for (const rep of reparaciones) {
         if (rep.estado === 'Aceptada') cAceptada += 1;
         if (rep.estado === 'Presupuestada') cPresupuesto += 1;
-        if (rep.estado === 'En ReparaciÃ³n') cTaller += 1;
+        if (rep.estado === 'En Reparación') cTaller += 1;
         if (rep.estado === 'Terminada') cTerminada += 1;
         if (rep.estado === 'Archivada') cArchivada += 1;
     }
@@ -704,7 +828,7 @@ function activarPestana(estado) {
 
     if (estado === 'Aceptada') tabAceptada.classList.add('activo');
     if (estado === 'Presupuestada') tabPresupuesta.classList.add('activo');
-    if (estado === 'En ReparaciÃ³n') tabTaller.classList.add('activo');
+    if (estado === 'En Reparación') tabTaller.classList.add('activo');
     if (estado === 'Terminada') tabTerminada.classList.add('activo');
     if (estado === 'Archivada') tabArchivada.classList.add('activo');
 }
@@ -728,7 +852,7 @@ function dibujarLista() {
 
     for (const rep of filtradas) {
         const div = document.createElement('div');
-        const claseBorde = rep.estado === 'En ReparaciÃ³n' ? 'En-Reparacion' : rep.estado;
+        const claseBorde = rep.estado === 'En Reparación' ? 'En-Reparacion' : rep.estado;
         div.className = 'registro borde-' + claseBorde.replace(/ /g, '-');
 
         const nSerie = rep.serie
@@ -764,7 +888,7 @@ function dibujarLista() {
             botoneraFlujo =
                 '<button class="btn-flujo" data-action="acepto" style="background-color:#f39c12; margin-right:5px;">Cliente Acepto (Ir a Taller)</button>' +
                 '<button class="btn-flujo" data-action="rechazo" style="background-color:#e67e22;">Cliente NO Acepto</button>';
-        } else if (rep.estado === 'En ReparaciÃ³n') {
+        } else if (rep.estado === 'En Reparación') {
             botoneraFlujo = '<button class="btn-flujo" data-action="terminada" style="background-color:#2ecc71;">Trabajo Listo para Retirar</button>';
         } else if (rep.estado === 'Terminada') {
             botoneraFlujo = '<button class="btn-flujo" data-action="archivar" style="background-color:#16a085;">MARCAR COMO ENTREGADO Y COBRADO</button>';
@@ -775,7 +899,7 @@ function dibujarLista() {
         const nroOrden = extraerNumeroOrden(rep) || rep.idOrden || rep.id;
 
         div.innerHTML =
-            `<div class="cliente"><span class="dato-resaltado">${rep.apellido}, ${rep.nombre}</span> <span class="num-orden">Orden NÂ° ${nroOrden}</span></div>` +
+            `<div class="cliente"><span class="dato-resaltado">${rep.apellido}, ${rep.nombre}</span> <span class="num-orden">Orden N° ${nroOrden}</span></div>` +
             `<p><b>TELEFONO:</b> ${rep.telefono || 'No registrado'}</p>` +
             `<p><b>EQUIPO:</b> <span class="dato-resaltado">${rep.marca} ${rep.modelo}</span></p>` +
             nSerie +
@@ -806,7 +930,7 @@ function dibujarLista() {
             btn.addEventListener('click', async () => {
                 const action = btn.getAttribute('data-action');
                 if (action === 'presupuestar') await abrirCargaPresupuesto(rep);
-                if (action === 'acepto') await cambiarEstadoConAviso(rep, 'En ReparaciÃ³n');
+                if (action === 'acepto') await cambiarEstadoConAviso(rep, 'En Reparación');
                 if (action === 'rechazo') await rechazarPresupuestoFijo(rep);
                 if (action === 'terminada') await cambiarEstadoConAviso(rep, 'Terminada');
                 if (action === 'archivar') await entregarEquipoFijo(rep);
@@ -972,26 +1096,26 @@ function construirMensajeWhatsApp(rep) {
     const numeroOrden = extraerNumeroOrden(rep) || rep.idOrden || rep.id;
 
     if (rep.estado === 'Aceptada') {
-        return `Hola *${rep.nombre}*, nos comunicamos desde el Servicio Tecnico *MyB Electronica*. Tu equipo *${rep.marca} ${rep.modelo}* ya fue ingresado correctamente bajo la orden de trabajo *NÂ° ${numeroOrden}*. Queda a la espera de revision tecnico-diagnostica.`;
+        return `Hola *${rep.nombre}*, nos comunicamos desde el Servicio Tecnico *MyB Electronica*. Tu equipo *${rep.marca} ${rep.modelo}* ya fue ingresado correctamente bajo la orden de trabajo *N° ${numeroOrden}*. Queda a la espera de revision tecnico-diagnostica.`;
     }
 
     if (rep.estado === 'Presupuestada') {
-        return `Hola *${rep.nombre}*, nos comunicamos desde el Servicio Tecnico *MyB Electronica*. Te adjuntamos el presupuesto para tu equipo *${rep.marca} ${rep.modelo}* bajo la orden de trabajo *NÂ° ${numeroOrden}*.\n\nFalla: *${rep.detallePresupuesto || rep.detalle_presupuesto || ''}*\nCosto: *$${rep.precioPresupuesto || rep.precio_presupuesto || ''}*\n\nPor favor, confirmanos si aprobas el presupuesto.`;
+        return `Hola *${rep.nombre}*, nos comunicamos desde el Servicio Tecnico *MyB Electronica*. Te adjuntamos el presupuesto para tu equipo *${rep.marca} ${rep.modelo}* bajo la orden de trabajo *N° ${numeroOrden}*.\n\nFalla: *${rep.detallePresupuesto || rep.detalle_presupuesto || ''}*\nCosto: *$${rep.precioPresupuesto || rep.precio_presupuesto || ''}*\n\nPor favor, confirmanos si aprobas el presupuesto.`;
     }
 
-    if (rep.estado === 'En ReparaciÃ³n') {
-        return `Hola *${rep.nombre}*, nos comunicamos desde el Servicio Tecnico *MyB Electronica*. Te informamos que el presupuesto de *$${rep.precioPresupuesto || rep.precio_presupuesto || ''}* fue aprobado y tu equipo *${rep.marca} ${rep.modelo}* bajo la orden de trabajo *NÂ° ${numeroOrden}* ya se encuentra en proceso de reparacion.`;
+    if (rep.estado === 'En Reparación') {
+        return `Hola *${rep.nombre}*, nos comunicamos desde el Servicio Tecnico *MyB Electronica*. Te informamos que el presupuesto de *$${rep.precioPresupuesto || rep.precio_presupuesto || ''}* fue aprobado y tu equipo *${rep.marca} ${rep.modelo}* bajo la orden de trabajo *N° ${numeroOrden}* ya se encuentra en proceso de reparacion.`;
     }
 
     if (rep.estado === 'Terminada' || rep.estado === 'Archivada') {
         if (rep.fueReparado === false) {
-            return `Hola *${rep.nombre}*, nos comunicamos desde el Servicio Tecnico *MyB Electronica*. Te informamos que podes pasar a retirar tu equipo *${rep.marca} ${rep.modelo}* bajo la orden de trabajo *NÂ° ${numeroOrden}* que quedo devuelto sin arreglo.`;
+            return `Hola *${rep.nombre}*, nos comunicamos desde el Servicio Tecnico *MyB Electronica*. Te informamos que podes pasar a retirar tu equipo *${rep.marca} ${rep.modelo}* bajo la orden de trabajo *N° ${numeroOrden}* que quedo devuelto sin arreglo.`;
         }
 
-        return `Hola *${rep.nombre}*, nos comunicamos desde el Servicio Tecnico *MyB Electronica*. El trabajo de tu equipo *${rep.marca} ${rep.modelo}* bajo la orden de trabajo *NÂ° ${numeroOrden}* ya esta listo. El costo de la reparacion es de *$${rep.precioPresupuesto || rep.precio_presupuesto || ''}*. Podes pasar a retirarlo cuando gustes.`;
+        return `Hola *${rep.nombre}*, nos comunicamos desde el Servicio Tecnico *MyB Electronica*. El trabajo de tu equipo *${rep.marca} ${rep.modelo}* bajo la orden de trabajo *N° ${numeroOrden}* ya esta listo. El costo de la reparacion es de *$${rep.precioPresupuesto || rep.precio_presupuesto || ''}*. Podes pasar a retirarlo cuando gustes.`;
     }
 
-    return `Hola *${rep.nombre}*, tenemos novedades sobre tu orden *NÂ° ${numeroOrden}*.`;
+    return `Hola *${rep.nombre}*, tenemos novedades sobre tu orden *N° ${numeroOrden}*.`;
 }
 
 function enviarWhatsAppDirecto(rep) {
@@ -1010,11 +1134,11 @@ async function cambiarEstadoConAviso(rep, nuevoEstado) {
 
     const actualizado = Object.assign({}, rep, upd);
     enviarWhatsAppDirecto(actualizado);
-    await fetchAndRender();
+    await fetchAndRenderSafe('refrescar ordenes');
 }
 
 async function entregarEquipoFijo(rep) {
-    const ok = confirm('Â¿Confirmas que el cliente pago y retiro el equipo? IrÃ¡ a la pestaÃ±a de Archivadas.');
+    const ok = confirm('¿Confirmas que el cliente pago y retiro el equipo? Irá a la pestaña de Archivadas.');
     if (!ok) return;
 
     await datastore.updateOrder(rep.id, { estado: 'Archivada' });
@@ -1023,7 +1147,7 @@ async function entregarEquipoFijo(rep) {
         const numeroOrden = extraerNumeroOrden(rep) || rep.idOrden || rep.id;
         await agregarMovimientoCaja({
             caja: 'reparaciones',
-            descripcion: `Orden NÂ° ${numeroOrden} - ${rep.marca} ${rep.modelo}`,
+            descripcion: `Orden N° ${numeroOrden} - ${rep.marca} ${rep.modelo}`,
             importe: montoCobrado,
             origen: 'reparacion',
             ordenId: rep.id
@@ -1034,8 +1158,8 @@ async function entregarEquipoFijo(rep) {
         const numLimpio = limpiarNumeroTelefonoFijo(rep.telefono);
         const numeroOrden = extraerNumeroOrden(rep) || rep.idOrden || rep.id;
         const textoCierre = rep.fueReparado === false
-            ? `Hola *${rep.nombre}*, te confirmamos que tu equipo *${rep.marca} ${rep.modelo}* bajo la orden de trabajo *NÂ° ${numeroOrden}* fue retirado de nuestro local (Devuelto sin arreglo). Muchas gracias por confiar en *MyB Electronica*!`
-            : `Hola *${rep.nombre}*, te confirmamos que tu equipo *${rep.marca} ${rep.modelo}* bajo la orden de trabajo *NÂ° ${numeroOrden}* fue entregado y cobrado correctamente la suma de *$${rep.precioPresupuesto || rep.precio_presupuesto || ''}*. Muchas gracias por confiar en *MyB Electronica*!`;
+            ? `Hola *${rep.nombre}*, te confirmamos que tu equipo *${rep.marca} ${rep.modelo}* bajo la orden de trabajo *N° ${numeroOrden}* fue retirado de nuestro local (Devuelto sin arreglo). Muchas gracias por confiar en *MyB Electronica*!`
+            : `Hola *${rep.nombre}*, te confirmamos que tu equipo *${rep.marca} ${rep.modelo}* bajo la orden de trabajo *N° ${numeroOrden}* fue entregado y cobrado correctamente la suma de *$${rep.precioPresupuesto || rep.precio_presupuesto || ''}*. Muchas gracias por confiar en *MyB Electronica*!`;
 
         const urlCierre = `whatsapp://send?phone=${numLimpio}&text=${encodeURIComponent(textoCierre)}`;
         window.location.href = urlCierre;
@@ -1043,14 +1167,14 @@ async function entregarEquipoFijo(rep) {
 
     estadoActualFiltrado = 'Terminada';
     activarPestana('Terminada');
-    await fetchAndRender();
+    await fetchAndRenderSafe('refrescar ordenes');
 }
 
 async function abrirCargaPresupuesto(rep) {
-    const detalle = prompt('Â¿Cual es la falla real que encontraste en el diagnostico tecnico?', rep.detallePresupuesto || rep.detalle_presupuesto || '');
+    const detalle = prompt('¿Cual es la falla real que encontraste en el diagnostico tecnico?', rep.detallePresupuesto || rep.detalle_presupuesto || '');
     if (detalle === null) return;
 
-    const precioInput = prompt('Â¿Cual es el costo/precio final de esta reparacion? (No importa si no pones los puntos)', rep.precioPresupuesto || rep.precio_presupuesto || '');
+    const precioInput = prompt('¿Cual es el costo/precio final de esta reparacion? (No importa si no pones los puntos)', rep.precioPresupuesto || rep.precio_presupuesto || '');
     if (precioInput === null) return;
 
     const upd = {
@@ -1071,11 +1195,11 @@ async function abrirCargaPresupuesto(rep) {
     const actualizado = Object.assign({}, rep, upd);
     enviarWhatsAppDirecto(actualizado);
 
-    await fetchAndRender();
+    await fetchAndRenderSafe('refrescar ordenes');
 }
 
 async function rechazarPresupuestoFijo(rep) {
-    const ok = confirm('Â¿Marcar este equipo como rechazado por el cliente? Se enviarÃ¡ a terminadas sin costo y dispararÃ¡ el aviso.');
+    const ok = confirm('¿Marcar este equipo como rechazado por el cliente? Se enviará a terminadas sin costo y disparará el aviso.');
     if (!ok) return;
 
     const upd = {
@@ -1094,7 +1218,7 @@ async function rechazarPresupuestoFijo(rep) {
     const actualizado = Object.assign({}, rep, upd);
     enviarWhatsAppDirecto(actualizado);
 
-    await fetchAndRender();
+    await fetchAndRenderSafe('refrescar ordenes');
 }
 
 async function guardarOrdenManual() {
@@ -1155,14 +1279,14 @@ async function guardarOrdenManual() {
     activarPestana('Aceptada');
 
     enviarWhatsAppDirecto(nuevaOrden);
-    await fetchAndRender();
+    await fetchAndRenderSafe('refrescar ordenes');
 }
 
 async function eliminarOrden(id) {
-    const ok = confirm('Â¿Estas seguro de borrar este registro de forma permanente?');
+    const ok = confirm('¿Estas seguro de borrar este registro de forma permanente?');
     if (!ok) return;
     await datastore.deleteOrder(id);
-    await fetchAndRender();
+    await fetchAndRenderSafe('refrescar ordenes');
 }
 
 btnGuardar.addEventListener('click', async () => {
@@ -1187,7 +1311,7 @@ function filtrarPor(estado) {
 
 tabAceptada.addEventListener('click', () => filtrarPor('Aceptada'));
 tabPresupuesta.addEventListener('click', () => filtrarPor('Presupuestada'));
-tabTaller.addEventListener('click', () => filtrarPor('En ReparaciÃ³n'));
+tabTaller.addEventListener('click', () => filtrarPor('En Reparación'));
 tabTerminada.addEventListener('click', () => filtrarPor('Terminada'));
 tabArchivada.addEventListener('click', () => filtrarPor('Archivada'));
 menuCobrar.addEventListener('click', () => mostrarSeccion('cobrar'));
@@ -1334,7 +1458,7 @@ fileInput.addEventListener('change', async (e) => {
         const arr = JSON.parse(txt);
         await datastore.importFromArray(arr);
         alert('Tus ordenes cargaron correctamente.');
-        await fetchAndRender();
+        await fetchAndRenderSafe('refrescar ordenes');
         filtrarPor('Aceptada');
     } catch (err) {
         alert('Archivo corrupto o no valido.');
@@ -1344,19 +1468,24 @@ fileInput.addEventListener('change', async (e) => {
 });
 
 buscar.addEventListener('input', () => dibujarLista());
-btnRefrescar.addEventListener('click', () => fetchAndRender());
+btnRefrescar.addEventListener('click', () => fetchAndRenderSafe('refrescar ordenes'));
 
 async function bootstrapApp() {
-    await intentarPersistenciaStorage();
+    actualizarIndicadorOrigenDatos();
     dibujarTablaItemsVenta();
     mostrarSeccion('cobrar');
-    await cargarCaja();
-    await cargarCatalogoArticulos();
-    await fetchAndRender();
+    const tareasInicio = [
+        fetchAndRenderSafe('cargar ordenes iniciales'),
+        cargarCaja(),
+        cargarCatalogoArticulos(),
+        intentarPersistenciaStorage()
+    ];
+    await Promise.all(tareasInicio);
 }
 
 bootstrapApp().catch((err) => {
     console.error('Error al iniciar app:', err);
+    alert('Error al iniciar app: ' + obtenerMensajeError(err));
 });
 
 if ('serviceWorker' in navigator) {
@@ -1368,5 +1497,8 @@ if ('serviceWorker' in navigator) {
         }
     });
 }
+
+
+
 
 

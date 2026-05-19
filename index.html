@@ -11,7 +11,7 @@
     <title>MyB Electronica - Gestion local</title>
     <link rel="manifest" href="manifest.webmanifest">
     <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
-    <link rel="stylesheet" href="styles.css?v=20260518-pwa3">
+    <link rel="stylesheet" href="styles.css?v=20260519-menu1">
 </head>
 <body>
 <div class="contenedor">
@@ -23,48 +23,80 @@
         </div>
     </div>
 
-    <div class="panel-ingreso">
-        <div class="fila-input">
-            <input type="text" id="nombre" placeholder="Nombre del cliente">
-            <input type="text" id="apellido" placeholder="Apellido del cliente">
+    <div class="menu-principal">
+        <button type="button" class="menu-btn activo" id="menu-cobrar">Cobrar</button>
+        <button type="button" class="menu-btn" id="menu-reparaciones">Reparaciones</button>
+        <button type="button" class="menu-btn" id="menu-caja">Caja</button>
+    </div>
+
+    <section id="vista-cobrar" class="vista-app">
+        <div class="panel-ingreso">
+            <h3 class="titulo-seccion">Cobrar</h3>
+            <input type="text" id="venta-descripcion" placeholder="Descripcion de la venta (Ej: Cable USB-C)">
+            <input type="text" id="venta-importe" inputmode="numeric" placeholder="Importe de la venta">
+            <button type="button" class="btn-guardar-fijo" id="btn-registrar-venta">+ REGISTRAR VENTA</button>
         </div>
-        <input type="text" id="telefono" placeholder="Numero de Telefono (Ej: 1122334455 sin 0 ni 15)">
-        <div class="fila-input">
-            <input type="text" id="marca" placeholder="Marca (Ej: Samsung, Motorola)">
-            <input type="text" id="modelo" placeholder="Modelo (Ej: A54, Moto Edge)">
+    </section>
+
+    <section id="vista-reparaciones" class="vista-app hidden">
+        <div class="panel-ingreso">
+            <div class="fila-input">
+                <input type="text" id="nombre" placeholder="Nombre del cliente">
+                <input type="text" id="apellido" placeholder="Apellido del cliente">
+            </div>
+            <input type="text" id="telefono" placeholder="Numero de Telefono (Ej: 1122334455 sin 0 ni 15)">
+            <div class="fila-input">
+                <input type="text" id="marca" placeholder="Marca (Ej: Samsung, Motorola)">
+                <input type="text" id="modelo" placeholder="Modelo (Ej: A54, Moto Edge)">
+            </div>
+            <input type="text" id="serie" placeholder="Numero de Serie / IMEI (Opcional)">
+            <input type="text" id="falla" placeholder="Falla reportada / Sintomas iniciales">
+
+            <button type="button" class="btn-flujo" id="btn-tomar-fotos">+ SACAR FOTO AL APARATO</button>
+            <input type="file" id="fotoInput" accept="image/*" capture="environment" multiple style="display:none">
+            <div id="vistaPreviaIngreso" class="galeria-fotos" style="display:none"></div>
+
+            <button type="button" class="btn-guardar-fijo" id="btn-guardar">+ AGREGAR NUEVA ORDEN</button>
         </div>
-        <input type="text" id="serie" placeholder="Numero de Serie / IMEI (Opcional)">
-        <input type="text" id="falla" placeholder="Falla reportada / Sintomas iniciales">
 
-        <button type="button" class="btn-flujo" id="btn-tomar-fotos">+ SACAR FOTO AL APARATO</button>
-        <input type="file" id="fotoInput" accept="image/*" capture="environment" multiple style="display:none">
-        <div id="vistaPreviaIngreso" class="galeria-fotos" style="display:none"></div>
+        <h3>Ordenes de Trabajo</h3>
 
-        <button type="button" class="btn-guardar-fijo" id="btn-guardar">+ AGREGAR NUEVA ORDEN</button>
-    </div>
+        <div class="pestanas">
+            <button id="tab-aceptada" class="tab-btn activo">Aceptadas <span class="contador" id="cant-aceptada">0</span></button>
+            <button id="tab-presupuesta" class="tab-btn">Presupuestadas <span class="contador" id="cant-presupuesto">0</span></button>
+            <button id="tab-taller" class="tab-btn">En Taller <span class="contador" id="cant-taller">0</span></button>
+            <button id="tab-terminada" class="tab-btn">Sacadas/Terminadas <span class="contador" id="cant-terminada">0</span></button>
+            <button id="tab-archivada" class="tab-btn">Archivadas <span class="contador" id="cant-archivada">0</span></button>
+        </div>
 
-    <h3>Ordenes de Trabajo</h3>
+        <div class="buscador-row">
+            <input id="buscar" placeholder="Buscar en la pestana actual (nombre, telefono u orden)" />
+            <button id="btn-refrescar">Refrescar</button>
+        </div>
 
-    <div class="pestanas">
-        <button id="tab-aceptada" class="tab-btn activo">Aceptadas <span class="contador" id="cant-aceptada">0</span></button>
-        <button id="tab-presupuesta" class="tab-btn">Presupuestadas <span class="contador" id="cant-presupuesto">0</span></button>
-        <button id="tab-taller" class="tab-btn">En Taller <span class="contador" id="cant-taller">0</span></button>
-        <button id="tab-terminada" class="tab-btn">Sacadas/Terminadas <span class="contador" id="cant-terminada">0</span></button>
-        <button id="tab-archivada" class="tab-btn">Archivadas <span class="contador" id="cant-archivada">0</span></button>
-    </div>
+        <div id="listaReparaciones"></div>
 
-    <div class="buscador-row">
-        <input id="buscar" placeholder="Buscar en la pestana actual (nombre, telefono u orden)" />
-        <button id="btn-refrescar">Refrescar</button>
-    </div>
+        <div class="respaldo-bar respaldo-bottom">
+            <button class="btn-respaldo" id="btn-export">Exportar JSON</button>
+            <button class="btn-respaldo" id="btn-import">Importar JSON</button>
+            <input type="file" id="fileInput" style="display:none">
+        </div>
+    </section>
 
-    <div id="listaReparaciones"></div>
-
-    <div class="respaldo-bar respaldo-bottom">
-        <button class="btn-respaldo" id="btn-export">Exportar JSON</button>
-        <button class="btn-respaldo" id="btn-import">Importar JSON</button>
-        <input type="file" id="fileInput" style="display:none">
-    </div>
+    <section id="vista-caja" class="vista-app hidden">
+        <div class="caja-grid">
+            <div class="caja-panel">
+                <h3 class="titulo-seccion">Caja Negocio</h3>
+                <p class="caja-total">Total: $<span id="total-caja-negocio">0</span></p>
+                <div id="historial-caja-negocio" class="historial-caja"></div>
+            </div>
+            <div class="caja-panel">
+                <h3 class="titulo-seccion">Caja Reparaciones</h3>
+                <p class="caja-total">Total: $<span id="total-caja-reparaciones">0</span></p>
+                <div id="historial-caja-reparaciones" class="historial-caja"></div>
+            </div>
+        </div>
+    </section>
 </div>
 
 <div id="photoViewer" class="photo-viewer hidden">
@@ -77,6 +109,6 @@
     <button id="viewerNext" class="photo-viewer-nav photo-viewer-next" aria-label="Foto siguiente">&gt;</button>
 </div>
 
-<script type="module" src="app.js?v=20260518-pwa3"></script>
+<script type="module" src="app.js?v=20260519-menu1"></script>
 </body>
 </html>

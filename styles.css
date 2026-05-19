@@ -6,6 +6,23 @@ h2, h3 { text-align: center; color: #1a252f; }
 .brand-texto { display: flex; flex-direction: column; line-height: 1.1; align-items: center; text-align: center; margin: 0 auto; }
 .brand-titulo { font-size: 24px; font-weight: 700; color: #1a252f; }
 .brand-subtitulo { font-size: 17px; font-weight: 600; color: #2f3e4d; margin-top: 4px; }
+.menu-principal { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-bottom: 14px; }
+.menu-btn { padding: 10px 8px; border-radius: 8px; border: 1px solid #cfd5dc; background: #ffffff; font-weight: 700; color: #2f3e4d; cursor: pointer; }
+.menu-btn.activo { background: #1f2937; border-color: #1f2937; color: #ffffff; }
+.vista-app.hidden { display: none; }
+.titulo-seccion { margin-top: 0; margin-bottom: 10px; }
+.panel-resumen-cobrar { background: #fff; border-radius: 10px; padding: 16px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 20px; }
+.caja-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-bottom: 20px; }
+.caja-panel { background: #fff; border-radius: 10px; padding: 16px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+.caja-total { font-weight: 700; color: #1a252f; margin: 4px 0 10px; font-size: 18px; }
+.historial-caja { background: #f8f9fb; border: 1px solid #dfe4ea; border-radius: 8px; padding: 8px; max-height: 280px; overflow: auto; }
+.historial-item { background: #fff; border: 1px solid #e3e7ec; border-radius: 6px; padding: 8px; margin-bottom: 6px; font-size: 13px; }
+.historial-item:last-child { margin-bottom: 0; }
+.historial-item-vacio { font-size: 13px; color: #6f7b87; text-align: center; padding: 10px 4px; }
+.historial-item-top { display: flex; justify-content: space-between; gap: 8px; margin-bottom: 4px; }
+.historial-item-monto { font-weight: 700; color: #2b8a3e; }
+.historial-item-fecha { color: #6f7b87; font-size: 12px; }
+.historial-item-descripcion { color: #1f2937; font-weight: 600; }
 .panel-ingreso { background: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 25px; }
 .fila-input { display: flex; gap: 10px; flex-wrap: wrap; }
 .fila-input input { min-width: 180px; flex: 1 1 180px; }
@@ -68,7 +85,10 @@ input, select { flex: 1; padding: 10px; margin: 6px 0; border-radius: 6px; borde
     .brand-logo { width: 56px; height: 56px; }
     .brand-titulo { font-size: 20px; }
     .brand-subtitulo { font-size: 15px; }
+    .menu-principal { gap: 6px; }
+    .menu-btn { font-size: 13px; }
     .panel-ingreso { padding: 16px; }
+    .caja-grid { grid-template-columns: 1fr; }
     .fila-input { gap: 8px; }
     .fila-input input { flex: 1 1 100%; min-width: 100%; }
     .buscador-row input, .buscador-row select, .buscador-row button { flex: 1 1 100%; min-width: 100%; }

@@ -11,11 +11,17 @@
     <title>MyB Electronica - Gestion local</title>
     <link rel="manifest" href="manifest.webmanifest">
     <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
-    <link rel="stylesheet" href="styles.css?v=20260518-pwa1">
+    <link rel="stylesheet" href="styles.css?v=20260518-pwa2">
 </head>
 <body>
 <div class="contenedor">
-    <h2>MyB Electronica - Gestion de Reparaciones</h2>
+    <div class="brand-header">
+        <img src="650853772_26499522616331918_8316664118828944721_n.jpg" alt="Logo MyB Electronica" class="brand-logo">
+        <div class="brand-texto">
+            <div class="brand-titulo">MyB Electronica</div>
+            <div class="brand-subtitulo">Reparaciones</div>
+        </div>
+    </div>
 
     <div class="panel-ingreso">
         <div class="fila-input">
@@ -30,7 +36,7 @@
         <input type="text" id="serie" placeholder="Numero de Serie / IMEI (Opcional)">
         <input type="text" id="falla" placeholder="Falla reportada / Sintomas iniciales">
 
-        <button type="button" class="btn-flujo" id="btn-tomar-fotos">SACAR FOTO AL APARATO (CAMARA EN VIVO)</button>
+        <button type="button" class="btn-flujo" id="btn-tomar-fotos">+ SACAR FOTO AL APARATO</button>
         <input type="file" id="fotoInput" accept="image/*" capture="environment" multiple style="display:none">
         <div id="vistaPreviaIngreso" class="galeria-fotos" style="display:none"></div>
 
@@ -71,6 +77,6 @@
     <button id="viewerNext" class="photo-viewer-nav photo-viewer-next" aria-label="Foto siguiente">&gt;</button>
 </div>
 
-<script type="module" src="app.js?v=20260518-pwa1"></script>
+<script type="module" src="app.js?v=20260518-pwa2"></script>
 </body>
 </html>

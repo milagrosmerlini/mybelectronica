@@ -1,4 +1,4 @@
-﻿import datastore from './datastore.js?v=20260519-menu1';
+﻿import datastore from './datastore.js?v=20260519-cloud1';
 
 const lista = document.getElementById('listaReparaciones');
 const fotoInput = document.getElementById('fotoInput');
@@ -1340,12 +1340,18 @@ fileInput.addEventListener('change', async (e) => {
 buscar.addEventListener('input', () => dibujarLista());
 btnRefrescar.addEventListener('click', () => fetchAndRender());
 
-intentarPersistenciaStorage();
-dibujarTablaItemsVenta();
-mostrarSeccion('cobrar');
-cargarCaja();
-cargarCatalogoArticulos();
-fetchAndRender();
+async function bootstrapApp() {
+    await intentarPersistenciaStorage();
+    dibujarTablaItemsVenta();
+    mostrarSeccion('cobrar');
+    await cargarCaja();
+    await cargarCatalogoArticulos();
+    await fetchAndRender();
+}
+
+bootstrapApp().catch((err) => {
+    console.error('Error al iniciar app:', err);
+});
 
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', async () => {

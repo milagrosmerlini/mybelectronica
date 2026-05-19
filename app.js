@@ -1194,6 +1194,29 @@ menuCobrar.addEventListener('click', () => mostrarSeccion('cobrar'));
 menuReparaciones.addEventListener('click', () => mostrarSeccion('reparaciones'));
 menuCaja.addEventListener('click', () => mostrarSeccion('caja'));
 
+function manejarEnterCamposCobrar(event) {
+    if (event.key !== 'Enter') return false;
+    event.preventDefault();
+
+    if (event.target === ventaCantidad) {
+        if (ventaDescripcion) ventaDescripcion.focus();
+        return true;
+    }
+
+    if (event.target === ventaDescripcion) {
+        if (listaArticulos) listaArticulos.classList.add('hidden');
+        if (ventaImporte) ventaImporte.focus();
+        return true;
+    }
+
+    if (event.target === ventaImporte) {
+        if (ventaCantidad) ventaCantidad.focus();
+        return true;
+    }
+
+    return false;
+}
+
 ventaDescripcion.addEventListener('focus', () => {
     actualizarSugerenciasDescripcion();
     listaArticulos.classList.remove('hidden');
@@ -1209,7 +1232,9 @@ ventaDescripcion.addEventListener('input', () => {
 ventaDescripcion.addEventListener('keydown', (event) => {
     if (event.key === 'Escape') {
         listaArticulos.classList.add('hidden');
+        return;
     }
+    manejarEnterCamposCobrar(event);
 });
 
 document.addEventListener('pointerdown', (event) => {
@@ -1223,11 +1248,13 @@ ventaCantidad.addEventListener('input', () => {
     const n = limpiarCantidadEntera(ventaCantidad.value);
     ventaCantidad.value = n ? String(n) : '';
 });
+ventaCantidad.addEventListener('keydown', manejarEnterCamposCobrar);
 
 ventaImporte.addEventListener('input', () => {
     const n = limpiarImporteEntero(ventaImporte.value);
     ventaImporte.value = n ? formatearNumeroEntero(n) : '';
 });
+ventaImporte.addEventListener('keydown', manejarEnterCamposCobrar);
 
 if (ventaTotalFinal) {
     ventaTotalFinal.addEventListener('input', () => {

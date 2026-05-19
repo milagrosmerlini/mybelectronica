@@ -1,8 +1,8 @@
-const CACHE_NAME = 'myb-electronica-cache-v5';
+const CACHE_NAME = 'myb-electronica-cache-v6';
 const APP_SHELL = [
     '/',
     '/index.html',
-    '/styles.css?v=20260518-pwa2',
+    '/styles.css?v=20260518-pwa3',
     '/app.js?v=20260518-pwa3',
     '/datastore.js?v=20260516-blob1',
     '/manifest.webmanifest',

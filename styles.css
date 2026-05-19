@@ -27,12 +27,14 @@ input, select { flex: 1; padding: 10px; margin: 6px 0; border-radius: 6px; borde
 .btn-whatsapp:hover { background-color: #1ebd59; }
 .btn-borrar { background-color: #e74c3c; color: white; margin-left: auto; padding: 8px 14px; font-size: 13px; border: none; border-radius: 5px; cursor: pointer; }
 .respaldo-bar { display: flex; gap: 10px; margin-bottom: 20px; justify-content: center; flex-wrap: wrap; }
+.respaldo-bottom { margin-top: 26px; margin-bottom: 4px; padding-top: 14px; border-top: 1px solid #dfe4ea; }
 .btn-respaldo { padding: 10px 16px; font-size: 13px; border-radius: 8px; border: 1px solid #ccc; cursor: pointer; background: #fff; font-weight: bold; min-width: 140px; }
 .buscador-row { display: flex; gap: 10px; align-items: center; margin-bottom: 20px; flex-wrap: wrap; }
 .buscador-row input { min-width: 160px; flex: 1 1 200px; }
 .buscador-row select { min-width: 140px; flex: 0 0 140px; }
 .buscador-row button { min-width: 120px; flex: 0 0 auto; }
-#btn-tomar-fotos { width: 100%; margin-top: 10px; }
+#btn-tomar-fotos { width: 100%; margin-top: 10px; background-color: #1f2937; color: #ffffff; }
+#btn-tomar-fotos:hover { background-color: #111827; }
 .txt-presupuesto { background-color: #f4ecf7; padding: 10px; border-radius: 6px; border: 1px solid #d2b4de; color: #6c3483; margin: 8px 0; font-size: 14px; }
 .txt-rechazado { background-color: #fce4d6; padding: 10px; border-radius: 6px; border: 1px solid #f4b084; color: #c65911; margin: 8px 0; font-size: 14px; }
 .txt-entregado { background-color: #e8f8f5; padding: 10px; border-radius: 6px; border: 1px solid #a3e4d7; color: #117a65; margin: 8px 0; font-size: 14px; }

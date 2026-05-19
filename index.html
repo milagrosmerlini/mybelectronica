@@ -3,18 +3,19 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#1a252f">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="MyB Electronica">
     <title>MyB Electronica - Gestion local</title>
-    <link rel="stylesheet" href="styles.css?v=20260516-blob1">
+    <link rel="manifest" href="manifest.webmanifest">
+    <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+    <link rel="stylesheet" href="styles.css?v=20260518-pwa1">
 </head>
 <body>
 <div class="contenedor">
     <h2>MyB Electronica - Gestion de Reparaciones</h2>
-
-    <div class="respaldo-bar">
-        <button class="btn-respaldo" id="btn-export">Exportar JSON</button>
-        <button class="btn-respaldo" id="btn-import">Importar JSON</button>
-        <input type="file" id="fileInput" style="display:none">
-    </div>
 
     <div class="panel-ingreso">
         <div class="fila-input">
@@ -52,6 +53,12 @@
     </div>
 
     <div id="listaReparaciones"></div>
+
+    <div class="respaldo-bar respaldo-bottom">
+        <button class="btn-respaldo" id="btn-export">Exportar JSON</button>
+        <button class="btn-respaldo" id="btn-import">Importar JSON</button>
+        <input type="file" id="fileInput" style="display:none">
+    </div>
 </div>
 
 <div id="photoViewer" class="photo-viewer hidden">
@@ -64,6 +71,6 @@
     <button id="viewerNext" class="photo-viewer-nav photo-viewer-next" aria-label="Foto siguiente">&gt;</button>
 </div>
 
-<script type="module" src="app.js?v=20260516-blob1"></script>
+<script type="module" src="app.js?v=20260518-pwa1"></script>
 </body>
 </html>

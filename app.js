@@ -787,3 +787,13 @@ btnRefrescar.addEventListener('click', () => fetchAndRender());
 intentarPersistenciaStorage();
 fetchAndRender();
 
+if ('serviceWorker' in navigator) {
+    window.addEventListener('load', async () => {
+        try {
+            await navigator.serviceWorker.register('./sw.js');
+        } catch (err) {
+            console.warn('No se pudo registrar el service worker:', err);
+        }
+    });
+}
+

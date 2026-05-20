@@ -10,6 +10,8 @@ const btnExport = document.getElementById('btn-export');
 const btnTomarFotos = document.getElementById('btn-tomar-fotos');
 const buscar = document.getElementById('buscar');
 const btnRefrescar = document.getElementById('btn-refrescar');
+const btnActualizarApp = document.getElementById('btn-actualizar-app');
+const estadoActualizacionApp = document.getElementById('estado-actualizacion-app');
 const menuCobrar = document.getElementById('menu-cobrar');
 const menuReparaciones = document.getElementById('menu-reparaciones');
 const menuCaja = document.getElementById('menu-caja');
@@ -55,7 +57,13 @@ const viewerIndex = document.getElementById('viewerIndex');
 const viewerTotal = document.getElementById('viewerTotal');
 const dataSourceStatus = document.getElementById('data-source-status');
 
+const SW_UPDATE_CHECK_INTERVAL_MS = 60 * 1000;
+
 let fotosTemporalesIngreso = [];
+let serviceWorkerRegistration = null;
+let serviceWorkerReloadTriggered = false;
+let serviceWorkerHadControllerAtBoot = false;
+let serviceWorkerUpdateIntervalId = null;
 let reparaciones = [];
 let proximoNumeroOrden = 1;
 let estadoActualFiltrado = 'Aceptada';
@@ -1675,6 +1683,99 @@ if (btnRefrescar) {
     btnRefrescar.addEventListener('click', () => fetchAndRenderSafe('refrescar ordenes'));
 }
 
+function actualizarEstadoActualizacionApp(texto, tipo = '') {
+    if (!estadoActualizacionApp) return;
+    estadoActualizacionApp.textContent = texto || '';
+    estadoActualizacionApp.classList.remove('is-checking', 'is-ready', 'is-error');
+    if (tipo) estadoActualizacionApp.classList.add(tipo);
+}
+
+function setBotonActualizacionOcupado(ocupado) {
+    if (!btnActualizarApp) return;
+    btnActualizarApp.disabled = ocupado;
+    btnActualizarApp.textContent = ocupado ? 'Buscando...' : 'Actualizar app';
+}
+
+function activarNuevaVersionApp(worker) {
+    if (!worker) return;
+    actualizarEstadoActualizacionApp('Nueva version detectada. Aplicando cambios...', 'is-ready');
+    worker.postMessage({ type: 'SKIP_WAITING' });
+}
+
+function observarRegistroServiceWorker(registration) {
+    if (!registration) return;
+
+    if (registration.waiting) {
+        activarNuevaVersionApp(registration.waiting);
+    }
+
+    registration.addEventListener('updatefound', () => {
+        const installing = registration.installing;
+        if (!installing) return;
+
+        installing.addEventListener('statechange', () => {
+            if (installing.state === 'installed' && navigator.serviceWorker.controller) {
+                activarNuevaVersionApp(installing);
+            }
+        });
+    });
+}
+
+async function buscarActualizacionApp({ silencioso = false } = {}) {
+    if (!serviceWorkerRegistration) return false;
+
+    if (!silencioso) {
+        setBotonActualizacionOcupado(true);
+        actualizarEstadoActualizacionApp('Buscando actualizaciones...', 'is-checking');
+    }
+
+    try {
+        await serviceWorkerRegistration.update();
+
+        if (serviceWorkerRegistration.waiting) {
+            activarNuevaVersionApp(serviceWorkerRegistration.waiting);
+            return true;
+        }
+
+        if (!silencioso) {
+            actualizarEstadoActualizacionApp('Ya estas usando la ultima version.');
+        }
+
+        return false;
+    } catch (err) {
+        console.warn('No se pudo buscar actualizaciones de la app:', err);
+        if (!silencioso) {
+            actualizarEstadoActualizacionApp('No se pudo verificar actualizaciones. Reintenta.', 'is-error');
+        }
+        return false;
+    } finally {
+        if (!silencioso) {
+            setBotonActualizacionOcupado(false);
+        }
+    }
+}
+
+function iniciarChequeoAutomaticoDeActualizaciones() {
+    if (!serviceWorkerRegistration) return;
+
+    if (serviceWorkerUpdateIntervalId) {
+        clearInterval(serviceWorkerUpdateIntervalId);
+    }
+
+    serviceWorkerUpdateIntervalId = window.setInterval(() => {
+        buscarActualizacionApp({ silencioso: true });
+    }, SW_UPDATE_CHECK_INTERVAL_MS);
+
+    window.addEventListener('focus', () => {
+        buscarActualizacionApp({ silencioso: true });
+    });
+
+    document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') {
+            buscarActualizacionApp({ silencioso: true });
+        }
+    });
+}
 async function bootstrapApp() {
     actualizarIndicadorOrigenDatos();
     dibujarTablaItemsVenta();
@@ -1695,22 +1796,33 @@ bootstrapApp().catch((err) => {
 
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', async () => {
+        serviceWorkerHadControllerAtBoot = Boolean(navigator.serviceWorker.controller);
+
+        navigator.serviceWorker.addEventListener('controllerchange', () => {
+            if (!serviceWorkerHadControllerAtBoot) {
+                serviceWorkerHadControllerAtBoot = true;
+                return;
+            }
+
+            if (serviceWorkerReloadTriggered) return;
+            serviceWorkerReloadTriggered = true;
+            window.location.reload();
+        });
+
+        if (btnActualizarApp) {
+            btnActualizarApp.addEventListener('click', () => {
+                buscarActualizacionApp({ silencioso: false });
+            });
+        }
+
         try {
-            await navigator.serviceWorker.register('./sw.js', { updateViaCache: 'none' });
+            serviceWorkerRegistration = await navigator.serviceWorker.register('./sw.js', { updateViaCache: 'none' });
+            observarRegistroServiceWorker(serviceWorkerRegistration);
+            iniciarChequeoAutomaticoDeActualizaciones();
+            buscarActualizacionApp({ silencioso: true });
         } catch (err) {
             console.warn('No se pudo registrar el service worker:', err);
+            actualizarEstadoActualizacionApp('No se pudo iniciar actualizaciones automaticas.', 'is-error');
         }
     });
 }
-
-
-
-
-
-
-
-
-
-
-
-

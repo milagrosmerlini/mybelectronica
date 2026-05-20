@@ -200,8 +200,21 @@ button, .btn-flujo, .btn-secundario-fijo, .btn-guardar-fijo, .menu-btn { touch-a
 .respaldo-bar { display: flex; gap: 10px; margin-bottom: 20px; justify-content: center; flex-wrap: wrap; }
 .respaldo-bottom { margin-top: 26px; margin-bottom: 4px; padding-top: 14px; border-top: 1px solid #dfe4ea; }
 .btn-respaldo { padding: 10px 16px; font-size: 13px; border-radius: 8px; border: 1px solid #ccc; cursor: pointer; background: #fff; font-weight: bold; min-width: 140px; }
-.respaldo-bottom { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: stretch; }
+.respaldo-bottom { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); align-items: stretch; }
 .respaldo-bottom .btn-respaldo { width: 100%; min-width: 0; }
+.btn-actualizar-app { border-color: #1f2937; color: #1f2937; }
+.btn-actualizar-app:disabled { opacity: 0.7; cursor: wait; }
+.estado-actualizacion-app {
+    grid-column: 1 / -1;
+    min-height: 18px;
+    text-align: center;
+    font-size: 12px;
+    font-weight: 700;
+    color: #4b5563;
+}
+.estado-actualizacion-app.is-checking { color: #1d4ed8; }
+.estado-actualizacion-app.is-ready { color: #0f766e; }
+.estado-actualizacion-app.is-error { color: #b42318; }
 .buscador-row { display: flex; gap: 10px; align-items: center; margin-bottom: 20px; flex-wrap: wrap; }
 .buscador-row input { min-width: 160px; flex: 1 1 200px; }
 .buscador-row select { min-width: 140px; flex: 0 0 140px; }
@@ -374,7 +387,7 @@ button, .btn-flujo, .btn-secundario-fijo, .btn-guardar-fijo, .menu-btn { touch-a
     .buscador-row input, .buscador-row select, .buscador-row button { flex: 1 1 100%; min-width: 100%; }
     .respaldo-bar { gap: 8px; }
     .btn-respaldo { min-width: 100%; }
-    .respaldo-bottom { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .respaldo-bottom { grid-template-columns: minmax(0, 1fr); }
     .respaldo-bottom .btn-respaldo { min-width: 0; }
     .btn-guardar-fijo, #btn-tomar-fotos { font-size: 15px; }
     .pie-credito { margin-top: 20px; font-size: 12px; padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 8px); }

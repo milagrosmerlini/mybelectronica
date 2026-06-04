@@ -80,6 +80,16 @@ h2, h3 { text-align: center; color: #1a252f; }
 .vista-app.hidden { display: none; }
 .titulo-seccion { margin-top: 0; margin-bottom: 10px; }
 .panel-resumen-cobrar { background: #fff; border-radius: 10px; padding: 16px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 20px; }
+.caja-mensual-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+.caja-mensual-titulo { margin: 0; color: #1a252f; font-size: 22px; line-height: 1.2; }
+.caja-mensual-selector { position: relative; display: inline-flex; align-items: center; gap: 8px; color: #52606d; font-size: 13px; font-weight: 700; }
+.caja-mes-toggle { min-width: 150px; border: 1px solid #d5dce6; border-radius: 8px; background: #ffffff; color: #1f2937; font: inherit; font-weight: 700; padding: 8px 10px; cursor: pointer; display: inline-flex; align-items: center; justify-content: space-between; gap: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.04); }
+.caja-mes-toggle[aria-expanded="true"] { border-color: #7a8da3; }
+.caja-mes-flecha { font-size: 10px; line-height: 1; color: #6f7b87; }
+.caja-mes-opciones { position: absolute; top: calc(100% + 6px); right: 0; z-index: 20; width: max(190px, 100%); max-height: 240px; overflow: auto; padding: 6px; border: 1px solid #d5dce6; border-radius: 8px; background: #ffffff; box-shadow: 0 12px 24px rgba(15, 23, 42, 0.16); }
+.caja-mes-opciones.hidden { display: none; }
+.caja-mes-opcion { width: 100%; border: 0; border-radius: 6px; background: transparent; color: #1f2937; cursor: pointer; font: inherit; font-weight: 700; text-align: left; padding: 9px 10px; }
+.caja-mes-opcion:hover, .caja-mes-opcion[aria-selected="true"] { background: #eef3f8; color: #1a252f; }
 .caja-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-bottom: 20px; }
 .caja-panel { background: #fff; border-radius: 10px; padding: 16px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
 .caja-total { font-weight: 700; color: #1a252f; margin: 4px 0 10px; font-size: 18px; }
@@ -196,7 +206,9 @@ button, .btn-flujo, .btn-secundario-fijo, .btn-guardar-fijo, .menu-btn { touch-a
 .btn-flujo { padding: 8px 14px; font-size: 13px; border-radius: 5px; border: none; cursor: pointer; font-weight: bold; color: white; }
 .btn-whatsapp { background-color: #25d366; color: white; padding: 8px 14px; font-size: 13px; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; }
 .btn-whatsapp:hover { background-color: #1ebd59; }
-.btn-borrar { background-color: #e74c3c; color: white; margin-left: auto; padding: 8px 14px; font-size: 13px; border: none; border-radius: 5px; cursor: pointer; }
+.btn-editar { background-color: #2563eb; color: white; margin-left: auto; padding: 8px 14px; font-size: 13px; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; }
+.btn-editar:hover { background-color: #1d4ed8; }
+.btn-borrar { background-color: #e74c3c; color: white; padding: 8px 14px; font-size: 13px; border: none; border-radius: 5px; cursor: pointer; }
 .respaldo-bar { display: flex; gap: 10px; margin-bottom: 20px; justify-content: center; flex-wrap: wrap; }
 .respaldo-bottom { margin-top: 26px; margin-bottom: 4px; padding-top: 14px; border-top: 1px solid #dfe4ea; }
 .btn-respaldo { padding: 10px 16px; font-size: 13px; border-radius: 8px; border: 1px solid #ccc; cursor: pointer; background: #fff; font-weight: bold; min-width: 140px; }
@@ -271,6 +283,7 @@ button, .btn-flujo, .btn-secundario-fijo, .btn-guardar-fijo, .menu-btn { touch-a
     box-shadow: 0 18px 36px rgba(17, 24, 39, 0.22);
     padding: 16px;
 }
+.app-dialog-edit { width: min(680px, 100%); max-height: min(88vh, 760px); overflow: auto; }
 .app-dialog-title {
     margin: 0 0 8px;
     color: #0f172a;
@@ -297,6 +310,11 @@ button, .btn-flujo, .btn-secundario-fijo, .btn-guardar-fijo, .menu-btn { touch-a
     border-color: #2563eb;
     box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
 }
+.app-edit-form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 10px; margin-top: 8px; }
+.app-edit-field { display: flex; flex-direction: column; gap: 4px; color: #334155; font-size: 13px; font-weight: 800; }
+.app-edit-field textarea { min-height: 82px; resize: vertical; font-family: inherit; }
+.app-edit-field:last-child { grid-column: 1 / -1; }
+.app-edit-error { min-height: 18px; margin-top: 10px; color: #b42318; font-size: 13px; font-weight: 800; }
 .app-dialog-actions {
     margin-top: 14px;
     display: flex;
@@ -381,6 +399,14 @@ button, .btn-flujo, .btn-secundario-fijo, .btn-guardar-fijo, .menu-btn { touch-a
         width: max(100%, 220px);
     }
     #venta-cantidad, #venta-descripcion, #venta-importe { font-size: 16px; padding: 9px; }
+    .app-edit-form { grid-template-columns: 1fr; }
+    .caja-mensual-header { align-items: flex-start; gap: 10px; }
+    .caja-mensual-titulo { font-size: 20px; }
+    .caja-mensual-selector { flex: 0 0 auto; }
+    .caja-mensual-selector span { display: none; }
+    .caja-mes-toggle { min-width: 130px; max-width: 48vw; }
+    .caja-mes-toggle #caja-mes-label, .caja-mes-toggle .caja-mes-flecha { display: inline; }
+    .caja-mes-opciones { width: min(220px, 70vw); }
     .caja-grid { grid-template-columns: 1fr; }
     .fila-input { gap: 8px; }
     .fila-input input { flex: 1 1 100%; min-width: 100%; }

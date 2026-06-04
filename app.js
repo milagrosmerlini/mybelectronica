@@ -35,6 +35,9 @@ const totalCajaReparaciones = document.getElementById('total-caja-reparaciones')
 const historialCobrarNegocio = document.getElementById('historial-cobrar-negocio');
 const historialCajaNegocio = document.getElementById('historial-caja-negocio');
 const historialCajaReparaciones = document.getElementById('historial-caja-reparaciones');
+const cajaMesToggle = document.getElementById('caja-mes-toggle');
+const cajaMesLabel = document.getElementById('caja-mes-label');
+const cajaMesOpciones = document.getElementById('caja-mes-opciones');
 
 const tabAceptada = document.getElementById('tab-aceptada');
 const tabPresupuesta = document.getElementById('tab-presupuesta');
@@ -104,6 +107,7 @@ const cajaVista = {
     negocio: { mostrarTodosLosDias: false, diaSeleccionado: null },
     reparaciones: { mostrarTodosLosDias: false, diaSeleccionado: null }
 };
+let cajaMesSeleccionado = claveMesLocal(new Date());
 
 function createIconSvg(paths) {
     const ns = 'http://www.w3.org/2000/svg';
@@ -278,6 +282,133 @@ function uiPrompt(message, defaultValue = '', options = {}) {
     }));
 }
 
+function uiEditarOrden(rep) {
+    return enqueueDialog(() => new Promise((resolve) => {
+        const backdrop = document.createElement('div');
+        backdrop.className = 'app-dialog-backdrop';
+
+        const dialog = document.createElement('div');
+        dialog.className = 'app-dialog app-dialog-edit';
+        dialog.setAttribute('role', 'dialog');
+        dialog.setAttribute('aria-modal', 'true');
+
+        const titleEl = document.createElement('h3');
+        titleEl.className = 'app-dialog-title';
+        titleEl.textContent = 'Editar reparacion';
+
+        const form = document.createElement('div');
+        form.className = 'app-edit-form';
+
+        const errorEl = document.createElement('div');
+        errorEl.className = 'app-edit-error';
+        errorEl.setAttribute('aria-live', 'polite');
+
+        const campos = [
+            { key: 'nombre', label: 'Nombre', value: rep && rep.nombre, required: true },
+            { key: 'apellido', label: 'Apellido', value: rep && rep.apellido, required: false },
+            { key: 'telefono', label: 'Telefono', value: rep && rep.telefono, required: false },
+            { key: 'tipoArticulo', label: 'Tipo de articulo', value: rep && (rep.tipoArticulo || rep.tipo_articulo), required: true },
+            { key: 'marca', label: 'Marca', value: rep && rep.marca, required: true },
+            { key: 'modelo', label: 'Modelo', value: rep && rep.modelo, required: false },
+            { key: 'serie', label: 'Numero de serie / IMEI', value: rep && rep.serie, required: false },
+            { key: 'falla', label: 'Falla reportada', value: rep && rep.falla, required: true, multiline: true }
+        ];
+
+        const inputs = {};
+        for (const campo of campos) {
+            const wrap = document.createElement('label');
+            wrap.className = 'app-edit-field';
+
+            const label = document.createElement('span');
+            label.textContent = campo.required ? `${campo.label} *` : `${campo.label} (Opcional)`;
+
+            const input = campo.multiline ? document.createElement('textarea') : document.createElement('input');
+            input.className = 'app-dialog-input';
+            if (!campo.multiline) input.type = 'text';
+            input.value = String(campo.value || '');
+
+            inputs[campo.key] = input;
+            wrap.appendChild(label);
+            wrap.appendChild(input);
+            form.appendChild(wrap);
+        }
+
+        const actions = document.createElement('div');
+        actions.className = 'app-dialog-actions';
+
+        const cancelBtn = document.createElement('button');
+        cancelBtn.type = 'button';
+        cancelBtn.className = 'app-dialog-btn app-dialog-btn-cancel';
+        cancelBtn.textContent = 'Cancelar';
+
+        const okBtn = document.createElement('button');
+        okBtn.type = 'button';
+        okBtn.className = 'app-dialog-btn app-dialog-btn-ok';
+        okBtn.textContent = 'Guardar';
+
+        actions.appendChild(cancelBtn);
+        actions.appendChild(okBtn);
+        dialog.appendChild(titleEl);
+        dialog.appendChild(form);
+        dialog.appendChild(errorEl);
+        dialog.appendChild(actions);
+        backdrop.appendChild(dialog);
+
+        const close = (value) => {
+            document.removeEventListener('keydown', onKeyDown);
+            backdrop.remove();
+            resolve(value);
+        };
+
+        const obtener = (key) => inputs[key].value.trim();
+
+        const guardar = () => {
+            errorEl.textContent = '';
+            const requeridos = [
+                ['nombre', 'Nombre'],
+                ['tipoArticulo', 'Tipo de articulo'],
+                ['marca', 'Marca'],
+                ['falla', 'Falla reportada']
+            ];
+
+            for (const [key, label] of requeridos) {
+                if (!obtener(key)) {
+                    errorEl.textContent = `Completa el campo ${label}.`;
+                    inputs[key].focus();
+                    return;
+                }
+            }
+
+            const tipo = obtener('tipoArticulo').toUpperCase();
+            close({
+                nombre: obtener('nombre').toUpperCase(),
+                apellido: obtener('apellido').toUpperCase(),
+                telefono: obtener('telefono'),
+                tipoArticulo: tipo,
+                tipo_articulo: tipo,
+                marca: obtener('marca').toUpperCase(),
+                modelo: obtener('modelo').toUpperCase(),
+                serie: obtener('serie').toUpperCase(),
+                falla: obtener('falla').toUpperCase()
+            });
+        };
+
+        const onKeyDown = (event) => {
+            if (event.key === 'Escape') close(null);
+            if (event.key === 'Enter' && event.ctrlKey) guardar();
+        };
+
+        okBtn.addEventListener('click', guardar);
+        cancelBtn.addEventListener('click', () => close(null));
+        backdrop.addEventListener('click', (event) => {
+            if (event.target === backdrop) close(null);
+        });
+        document.addEventListener('keydown', onKeyDown);
+        document.body.appendChild(backdrop);
+        inputs.nombre.focus();
+    }));
+}
+
 function actualizarIndicadorOrigenDatos() {
     if (!dataSourceStatus || typeof datastore.getStorageModeInfo !== 'function') return;
 
@@ -411,6 +542,8 @@ function normalizarOrden(raw, idx = 0) {
         nombre: (raw.nombre || '').toString().toUpperCase(),
         apellido: (raw.apellido || '').toString().toUpperCase(),
         telefono: (raw.telefono || '').toString(),
+        tipoArticulo: (raw.tipoArticulo || raw.tipo_articulo || '').toString().toUpperCase(),
+        tipo_articulo: (raw.tipoArticulo || raw.tipo_articulo || '').toString().toUpperCase(),
         marca: (raw.marca || '').toString().toUpperCase(),
         modelo: (raw.modelo || '').toString().toUpperCase(),
         serie: (raw.serie || '').toString().toUpperCase(),
@@ -579,6 +712,139 @@ function claveDiaLocal(fechaIso) {
     const m = String(fecha.getMonth() + 1).padStart(2, '0');
     const d = String(fecha.getDate()).padStart(2, '0');
     return `${y}-${m}-${d}`;
+}
+
+function obtenerNombreCliente(rep) {
+    const partes = [rep && rep.apellido, rep && rep.nombre]
+        .map((v) => String(v || '').trim())
+        .filter(Boolean);
+    return partes.join(', ') || 'Cliente sin nombre';
+}
+
+function obtenerDescripcionEquipo(rep) {
+    const partes = [
+        rep && (rep.tipoArticulo || rep.tipo_articulo),
+        rep && rep.marca,
+        rep && rep.modelo
+    ]
+        .map((v) => String(v || '').trim())
+        .filter(Boolean);
+    return partes.join(' ') || 'Equipo sin detalle';
+}
+
+function claveMesLocal(valorFecha) {
+    const fecha = valorFecha instanceof Date ? valorFecha : new Date(valorFecha);
+    if (Number.isNaN(fecha.getTime())) return '';
+    const y = fecha.getFullYear();
+    const m = String(fecha.getMonth() + 1).padStart(2, '0');
+    return `${y}-${m}`;
+}
+
+function formatearMesCaja(claveMes) {
+    const partes = String(claveMes || '').split('-');
+    const y = Number(partes[0]);
+    const m = Number(partes[1]);
+    if (!y || !m) return 'Mes actual';
+    const texto = new Date(y, m - 1, 1).toLocaleDateString('es-AR', {
+        month: 'long',
+        year: 'numeric'
+    });
+    return texto.charAt(0).toUpperCase() + texto.slice(1);
+}
+
+function obtenerMesesCaja() {
+    const fechas = [];
+    const listas = [cajaState.historialNegocio, cajaState.historialReparaciones];
+
+    for (const listaItems of listas) {
+        for (const item of (Array.isArray(listaItems) ? listaItems : [])) {
+            const fecha = item && item.fecha ? new Date(item.fecha) : null;
+            if (fecha && !Number.isNaN(fecha.getTime())) fechas.push(fecha);
+        }
+    }
+
+    for (const rep of (Array.isArray(reparaciones) ? reparaciones : [])) {
+        const fecha = rep && rep.created_at ? new Date(rep.created_at) : null;
+        if (fecha && !Number.isNaN(fecha.getTime())) fechas.push(fecha);
+    }
+
+    const hoy = new Date();
+    const mesActual = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
+    let primerMes = mesActual;
+
+    if (fechas.length) {
+        const primeraFecha = fechas.reduce((min, fecha) => fecha < min ? fecha : min, fechas[0]);
+        primerMes = new Date(primeraFecha.getFullYear(), primeraFecha.getMonth(), 1);
+    }
+
+    const meses = [];
+    for (
+        let fecha = new Date(primerMes.getFullYear(), primerMes.getMonth(), 1);
+        fecha <= mesActual;
+        fecha = new Date(fecha.getFullYear(), fecha.getMonth() + 1, 1)
+    ) {
+        meses.push(claveMesLocal(fecha));
+    }
+
+    if (cajaMesSeleccionado && !meses.includes(cajaMesSeleccionado)) {
+        meses.push(cajaMesSeleccionado);
+    }
+    return meses.filter(Boolean).sort((a, b) => b.localeCompare(a));
+}
+
+function renderSelectorMesCaja() {
+    if (!cajaMesToggle || !cajaMesLabel || !cajaMesOpciones) return;
+    const meses = obtenerMesesCaja();
+    cajaMesLabel.textContent = formatearMesCaja(cajaMesSeleccionado);
+    cajaMesOpciones.innerHTML = '';
+
+    for (const mes of meses) {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'caja-mes-opcion';
+        btn.textContent = formatearMesCaja(mes);
+        btn.setAttribute('role', 'option');
+        btn.setAttribute('aria-selected', String(mes === cajaMesSeleccionado));
+        btn.addEventListener('click', () => {
+            seleccionarMesCaja(mes);
+        });
+        cajaMesOpciones.appendChild(btn);
+    }
+}
+
+function cerrarSelectorMesCaja() {
+    if (!cajaMesToggle || !cajaMesOpciones) return;
+    cajaMesOpciones.classList.add('hidden');
+    cajaMesToggle.setAttribute('aria-expanded', 'false');
+}
+
+function alternarSelectorMesCaja() {
+    if (!cajaMesToggle || !cajaMesOpciones) return;
+    const abrir = cajaMesOpciones.classList.contains('hidden');
+    cajaMesOpciones.classList.toggle('hidden', !abrir);
+    cajaMesToggle.setAttribute('aria-expanded', String(abrir));
+}
+
+function seleccionarMesCaja(mes) {
+    cajaMesSeleccionado = mes || claveMesLocal(new Date());
+    cajaVista.negocio.mostrarTodosLosDias = false;
+    cajaVista.negocio.diaSeleccionado = null;
+    cajaVista.reparaciones.mostrarTodosLosDias = false;
+    cajaVista.reparaciones.diaSeleccionado = null;
+    cerrarSelectorMesCaja();
+    renderCaja();
+}
+
+function filtrarMovimientosPorMes(items, claveMes) {
+    return (Array.isArray(items) ? items : []).filter((item) => (
+        claveMesLocal(item && item.fecha ? item.fecha : '') === claveMes
+    ));
+}
+
+function sumarImportes(items) {
+    return (Array.isArray(items) ? items : []).reduce((acc, item) => {
+        return acc + Number(item && item.importe ? item.importe : 0);
+    }, 0);
 }
 
 function agruparMovimientosPorDia(items) {
@@ -877,13 +1143,19 @@ async function eliminarMovimientoCaja(caja, item) {
     }
 }
 function renderCaja() {
+    const historialNegocioMes = filtrarMovimientosPorMes(cajaState.historialNegocio, cajaMesSeleccionado);
+    const historialReparacionesMes = filtrarMovimientosPorMes(cajaState.historialReparaciones, cajaMesSeleccionado);
+    const mesLabel = formatearMesCaja(cajaMesSeleccionado);
+
+    renderSelectorMesCaja();
+
     if (totalCobrarNegocio) totalCobrarNegocio.textContent = formatearNumeroEntero(cajaState.cajaNegocioTotal);
-    if (totalCajaNegocio) totalCajaNegocio.textContent = formatearNumeroEntero(cajaState.cajaNegocioTotal);
-    if (totalCajaReparaciones) totalCajaReparaciones.textContent = formatearNumeroEntero(cajaState.cajaReparacionesTotal);
+    if (totalCajaNegocio) totalCajaNegocio.textContent = formatearNumeroEntero(sumarImportes(historialNegocioMes));
+    if (totalCajaReparaciones) totalCajaReparaciones.textContent = formatearNumeroEntero(sumarImportes(historialReparacionesMes));
 
     dibujarHistorialCaja(historialCobrarNegocio, cajaState.historialNegocio, 'Todavia no hay ventas registradas.', 'negocio');
-    dibujarHistorialCaja(historialCajaNegocio, cajaState.historialNegocio, 'Todavia no hay movimientos en Caja Negocio.', 'negocio');
-    dibujarHistorialCaja(historialCajaReparaciones, cajaState.historialReparaciones, 'Todavia no hay movimientos en Caja Reparaciones.', 'reparaciones');
+    dibujarHistorialCaja(historialCajaNegocio, historialNegocioMes, `Todavia no hay movimientos en Caja Negocio para ${mesLabel}.`, 'negocio');
+    dibujarHistorialCaja(historialCajaReparaciones, historialReparacionesMes, `Todavia no hay movimientos en Caja Reparaciones para ${mesLabel}.`, 'reparaciones');
 }
 
 async function cargarCaja() {
@@ -984,6 +1256,7 @@ async function fetchAndRender() {
     proximoNumeroOrden = (numeros.length ? Math.max(...numeros) : 0) + 1;
 
     dibujarLista();
+    renderCaja();
 }
 
 function actualizarContadores() {
@@ -1032,7 +1305,7 @@ function dibujarLista() {
     const filtradas = reparaciones.filter((rep) => {
         if (rep.estado !== estadoActualFiltrado) return false;
         if (!q) return true;
-        return (`${rep.nombre} ${rep.apellido} ${rep.telefono} ${extraerNumeroOrden(rep) || ''}`).toLowerCase().includes(q);
+        return (`${rep.nombre} ${rep.apellido} ${rep.telefono} ${rep.tipoArticulo || rep.tipo_articulo || ''} ${rep.marca} ${rep.modelo} ${extraerNumeroOrden(rep) || ''}`).toLowerCase().includes(q);
     });
 
     if (!filtradas.length) {
@@ -1087,11 +1360,13 @@ function dibujarLista() {
         }
 
         const nroOrden = extraerNumeroOrden(rep) || rep.idOrden || rep.id;
+        const cliente = obtenerNombreCliente(rep);
+        const equipo = obtenerDescripcionEquipo(rep);
 
         div.innerHTML =
-            `<div class="cliente"><span class="dato-resaltado">${rep.apellido}, ${rep.nombre}</span> <span class="num-orden">Orden N° ${nroOrden}</span></div>` +
+            `<div class="cliente"><span class="dato-resaltado">${cliente}</span> <span class="num-orden">Orden N° ${nroOrden}</span></div>` +
             `<p><b>TELEFONO:</b> ${rep.telefono || 'No registrado'}</p>` +
-            `<p><b>EQUIPO:</b> <span class="dato-resaltado">${rep.marca} ${rep.modelo}</span></p>` +
+            `<p><b>EQUIPO:</b> <span class="dato-resaltado">${equipo}</span></p>` +
             nSerie +
             `<p><b>PROBLEMA INICIAL:</b> <span class="dato-resaltado">${rep.falla}</span></p>` +
             bloquePresupuesto +
@@ -1099,6 +1374,7 @@ function dibujarLista() {
             `<div class="acciones">` +
                 botoneraFlujo +
                 `<button class="btn-whatsapp" data-action="whatsapp">Enviar WhatsApp</button>` +
+                `<button class="btn-editar" data-action="editar">Editar</button>` +
                 `<button class="btn-borrar" data-action="eliminar">Eliminar</button>` +
             `</div>`;
 
@@ -1110,6 +1386,10 @@ function dibujarLista() {
 
         div.querySelector('[data-action="whatsapp"]').addEventListener('click', () => {
             enviarWhatsAppDirecto(rep);
+        });
+
+        div.querySelector('[data-action="editar"]').addEventListener('click', async () => {
+            await editarOrden(rep);
         });
 
         div.querySelector('[data-action="eliminar"]').addEventListener('click', async () => {
@@ -1284,25 +1564,26 @@ window.addEventListener('beforeunload', () => {
 
 function construirMensajeWhatsApp(rep) {
     const numeroOrden = extraerNumeroOrden(rep) || rep.idOrden || rep.id;
+    const equipo = obtenerDescripcionEquipo(rep);
 
     if (rep.estado === 'Aceptada') {
-        return `Hola *${rep.nombre}*, nos comunicamos desde el Servicio Tecnico *MyB Electronica*. Tu equipo *${rep.marca} ${rep.modelo}* ya fue ingresado correctamente bajo la orden de trabajo *N° ${numeroOrden}*. Queda a la espera de revision tecnico-diagnostica.`;
+        return `Hola *${rep.nombre}*, nos comunicamos desde el Servicio Tecnico *MyB Electronica*. Tu equipo *${equipo}* ya fue ingresado correctamente bajo la orden de trabajo *N° ${numeroOrden}*. Queda a la espera de revision tecnico-diagnostica.`;
     }
 
     if (rep.estado === 'Presupuestada') {
-        return `Hola *${rep.nombre}*, nos comunicamos desde el Servicio Tecnico *MyB Electronica*. Te adjuntamos el presupuesto para tu equipo *${rep.marca} ${rep.modelo}* bajo la orden de trabajo *N° ${numeroOrden}*.\n\nFalla: *${rep.detallePresupuesto || rep.detalle_presupuesto || ''}*\nCosto: *$${rep.precioPresupuesto || rep.precio_presupuesto || ''}*\n\nPor favor, confirmanos si aprobas el presupuesto.`;
+        return `Hola *${rep.nombre}*, nos comunicamos desde el Servicio Tecnico *MyB Electronica*. Te adjuntamos el presupuesto para tu equipo *${equipo}* bajo la orden de trabajo *N° ${numeroOrden}*.\n\nFalla: *${rep.detallePresupuesto || rep.detalle_presupuesto || ''}*\nCosto: *$${rep.precioPresupuesto || rep.precio_presupuesto || ''}*\n\nPor favor, confirmanos si aprobas el presupuesto.`;
     }
 
     if (rep.estado === 'En Reparación') {
-        return `Hola *${rep.nombre}*, nos comunicamos desde el Servicio Tecnico *MyB Electronica*. Te informamos que el presupuesto de *$${rep.precioPresupuesto || rep.precio_presupuesto || ''}* fue aprobado y tu equipo *${rep.marca} ${rep.modelo}* bajo la orden de trabajo *N° ${numeroOrden}* ya se encuentra en proceso de reparacion.`;
+        return `Hola *${rep.nombre}*, nos comunicamos desde el Servicio Tecnico *MyB Electronica*. Te informamos que el presupuesto de *$${rep.precioPresupuesto || rep.precio_presupuesto || ''}* fue aprobado y tu equipo *${equipo}* bajo la orden de trabajo *N° ${numeroOrden}* ya se encuentra en proceso de reparacion.`;
     }
 
     if (rep.estado === 'Terminada' || rep.estado === 'Archivada') {
         if (rep.fueReparado === false) {
-            return `Hola *${rep.nombre}*, nos comunicamos desde el Servicio Tecnico *MyB Electronica*. Te informamos que podes pasar a retirar tu equipo *${rep.marca} ${rep.modelo}* bajo la orden de trabajo *N° ${numeroOrden}* que quedo devuelto sin arreglo.`;
+            return `Hola *${rep.nombre}*, nos comunicamos desde el Servicio Tecnico *MyB Electronica*. Te informamos que podes pasar a retirar tu equipo *${equipo}* bajo la orden de trabajo *N° ${numeroOrden}* que quedo devuelto sin arreglo.`;
         }
 
-        return `Hola *${rep.nombre}*, nos comunicamos desde el Servicio Tecnico *MyB Electronica*. El trabajo de tu equipo *${rep.marca} ${rep.modelo}* bajo la orden de trabajo *N° ${numeroOrden}* ya esta listo. El costo de la reparacion es de *$${rep.precioPresupuesto || rep.precio_presupuesto || ''}*. Podes pasar a retirarlo cuando gustes.`;
+        return `Hola *${rep.nombre}*, nos comunicamos desde el Servicio Tecnico *MyB Electronica*. El trabajo de tu equipo *${equipo}* bajo la orden de trabajo *N° ${numeroOrden}* ya esta listo. El costo de la reparacion es de *$${rep.precioPresupuesto || rep.precio_presupuesto || ''}*. Podes pasar a retirarlo cuando gustes.`;
     }
 
     return `Hola *${rep.nombre}*, tenemos novedades sobre tu orden *N° ${numeroOrden}*.`;
@@ -1339,9 +1620,10 @@ async function entregarEquipoFijo(rep) {
     const montoCobrado = rep.fueReparado === false ? 0 : limpiarImporteEntero(rep.precioPresupuesto || rep.precio_presupuesto || 0);
     if (montoCobrado > 0) {
         const numeroOrden = extraerNumeroOrden(rep) || rep.idOrden || rep.id;
+        const equipo = obtenerDescripcionEquipo(rep);
         await agregarMovimientoCaja({
             caja: 'reparaciones',
-            descripcion: `Orden N° ${numeroOrden} - ${rep.marca} ${rep.modelo}`,
+            descripcion: `Orden N° ${numeroOrden} - ${equipo}`,
             importe: montoCobrado,
             origen: 'reparacion',
             ordenId: rep.id
@@ -1351,9 +1633,10 @@ async function entregarEquipoFijo(rep) {
     if (rep.telefono) {
         const numLimpio = limpiarNumeroTelefonoFijo(rep.telefono);
         const numeroOrden = extraerNumeroOrden(rep) || rep.idOrden || rep.id;
+        const equipo = obtenerDescripcionEquipo(rep);
         const textoCierre = rep.fueReparado === false
-            ? `Hola *${rep.nombre}*, te confirmamos que tu equipo *${rep.marca} ${rep.modelo}* bajo la orden de trabajo *N° ${numeroOrden}* fue retirado de nuestro local (Devuelto sin arreglo). Muchas gracias por confiar en *MyB Electronica*!`
-            : `Hola *${rep.nombre}*, te confirmamos que tu equipo *${rep.marca} ${rep.modelo}* bajo la orden de trabajo *N° ${numeroOrden}* fue entregado y cobrado correctamente la suma de *$${rep.precioPresupuesto || rep.precio_presupuesto || ''}*. Muchas gracias por confiar en *MyB Electronica*!`;
+            ? `Hola *${rep.nombre}*, te confirmamos que tu equipo *${equipo}* bajo la orden de trabajo *N° ${numeroOrden}* fue retirado de nuestro local (Devuelto sin arreglo). Muchas gracias por confiar en *MyB Electronica*!`
+            : `Hola *${rep.nombre}*, te confirmamos que tu equipo *${equipo}* bajo la orden de trabajo *N° ${numeroOrden}* fue entregado y cobrado correctamente la suma de *$${rep.precioPresupuesto || rep.precio_presupuesto || ''}*. Muchas gracias por confiar en *MyB Electronica*!`;
 
         const urlCierre = `whatsapp://send?phone=${numLimpio}&text=${encodeURIComponent(textoCierre)}`;
         window.location.href = urlCierre;
@@ -1431,12 +1714,13 @@ async function guardarOrdenManual() {
     const nom = document.getElementById('nombre').value.trim();
     const ape = document.getElementById('apellido').value.trim();
     const tel = document.getElementById('telefono').value.trim();
+    const tipo = document.getElementById('tipoArticulo').value.trim();
     const mar = document.getElementById('marca').value.trim();
     const mod = document.getElementById('modelo').value.trim();
     const ser = document.getElementById('serie').value.trim();
     const fal = document.getElementById('falla').value.trim();
 
-    if (!nom || !ape || !mar || !mod || !fal) {
+    if (!nom || !tipo || !mar || !fal) {
         await uiAlert('Por favor, completa los campos obligatorios para ingresar el equipo.', { title: 'Dato faltante' });
         return;
     }
@@ -1450,6 +1734,8 @@ async function guardarOrdenManual() {
         nombre: nom.toUpperCase(),
         apellido: ape.toUpperCase(),
         telefono: tel,
+        tipoArticulo: tipo.toUpperCase(),
+        tipo_articulo: tipo.toUpperCase(),
         marca: mar.toUpperCase(),
         modelo: mod.toUpperCase(),
         serie: ser.toUpperCase(),
@@ -1473,6 +1759,7 @@ async function guardarOrdenManual() {
     document.getElementById('nombre').value = '';
     document.getElementById('apellido').value = '';
     document.getElementById('telefono').value = '';
+    document.getElementById('tipoArticulo').value = '';
     document.getElementById('marca').value = '';
     document.getElementById('modelo').value = '';
     document.getElementById('serie').value = '';
@@ -1498,6 +1785,19 @@ async function eliminarOrden(id) {
     if (!ok) return;
     await datastore.deleteOrder(id);
     await fetchAndRenderSafe('refrescar ordenes');
+}
+
+async function editarOrden(rep) {
+    const cambios = await uiEditarOrden(rep);
+    if (!cambios) return;
+
+    try {
+        await datastore.updateOrder(rep.id, cambios);
+        await fetchAndRenderSafe('refrescar ordenes');
+    } catch (err) {
+        console.error('No se pudo editar la orden:', err);
+        await uiAlert('No se pudo guardar la edicion: ' + obtenerMensajeError(err), { title: 'Error' });
+    }
 }
 
 btnGuardar.addEventListener('click', async () => {
@@ -1528,6 +1828,17 @@ tabArchivada.addEventListener('click', () => filtrarPor('Archivada'));
 menuCobrar.addEventListener('click', () => mostrarSeccion('cobrar'));
 menuReparaciones.addEventListener('click', () => mostrarSeccion('reparaciones'));
 menuCaja.addEventListener('click', () => mostrarSeccion('caja'));
+if (cajaMesToggle) {
+    cajaMesToggle.addEventListener('click', alternarSelectorMesCaja);
+}
+if (cajaMesToggle && cajaMesOpciones) {
+    document.addEventListener('pointerdown', (event) => {
+        const target = event.target;
+        if (!cajaMesToggle.contains(target) && !cajaMesOpciones.contains(target)) {
+            cerrarSelectorMesCaja();
+        }
+    });
+}
 
 function manejarEnterCamposCobrar(event) {
     if (event.key !== 'Enter') return false;

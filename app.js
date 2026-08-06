@@ -1,4 +1,4 @@
-﻿import datastore from './datastore.js?v=20260519-cloud6';
+﻿import datastore from './datastore.js?v=20260806-speed1';
 
 const lista = document.getElementById('listaReparaciones');
 const fotoInput = document.getElementById('fotoInput');
@@ -59,6 +59,16 @@ const viewerImage = document.getElementById('viewerImage');
 const viewerIndex = document.getElementById('viewerIndex');
 const viewerTotal = document.getElementById('viewerTotal');
 const dataSourceStatus = document.getElementById('data-source-status');
+
+const REPARACIONES_BADGE_CACHE_KEY = 'myb_reparaciones_activas';
+try {
+    const contadorGuardado = localStorage.getItem(REPARACIONES_BADGE_CACHE_KEY);
+    if (menuBadgeReparaciones && /^\d+$/.test(contadorGuardado || '')) {
+        menuBadgeReparaciones.textContent = contadorGuardado;
+    }
+} catch (_err) {
+    // localStorage puede estar deshabilitado; IndexedDB actualizara el valor enseguida.
+}
 
 const SW_UPDATE_CHECK_INTERVAL_MS = 60 * 1000;
 
@@ -1239,12 +1249,9 @@ async function migrarOrdenesSiHaceFalta(items) {
     return huboCambios;
 }
 
-async function fetchAndRender() {
+async function aplicarOrdenes(items, { migrar = true } = {}) {
     liberarBlobUrlsRenderizados();
-    const items = await datastore.getOrders();
     const normalizados = (items || []).map((it, idx) => normalizarOrden(it, idx));
-
-    await migrarOrdenesSiHaceFalta(normalizados);
     reparaciones = normalizados;
     blobUrlsRenderizados = reparaciones
         .flatMap((r) => Array.isArray(r.fotos) ? r.fotos : [])
@@ -1257,6 +1264,45 @@ async function fetchAndRender() {
 
     dibujarLista();
     renderCaja();
+
+    // La migracion no debe demorar el primer dibujo de la pantalla.
+    if (migrar) await migrarOrdenesSiHaceFalta(normalizados);
+}
+
+async function fetchAndRender() {
+    const items = await datastore.getOrders();
+    await aplicarOrdenes(items);
+}
+
+async function cargarOrdenesIniciales() {
+    try {
+        const cache = await datastore.getCachedOrders();
+        if (Array.isArray(cache) && cache.length) {
+            await aplicarOrdenes(cache, { migrar: false });
+        }
+    } catch (err) {
+        console.warn('No se pudo mostrar la cache local de ordenes:', err);
+    }
+
+    // La sincronizacion completa (incluidas las fotos) avanza en paralelo.
+    let sincronizacionCompletaFinalizada = false;
+    const sincronizacionCompleta = fetchAndRenderSafe('sincronizar ordenes iniciales')
+        .finally(() => { sincronizacionCompletaFinalizada = true; });
+
+    try {
+        const resumenNube = await datastore.getOrdersPreview();
+        if (!sincronizacionCompletaFinalizada && Array.isArray(resumenNube)) {
+            const fotosCacheadas = new Map(reparaciones.map((rep) => [String(rep.id), rep.fotos || []]));
+            const resumenConFotosCacheadas = resumenNube.map((rep) => Object.assign({}, rep, {
+                fotos: fotosCacheadas.get(String(rep.id)) || []
+            }));
+            await aplicarOrdenes(resumenConFotosCacheadas, { migrar: false });
+        }
+    } catch (err) {
+        console.warn('No se pudo mostrar el resumen de ordenes:', err);
+    }
+
+    return sincronizacionCompleta;
 }
 
 function actualizarContadores() {
@@ -1283,6 +1329,11 @@ function actualizarContadores() {
     if (menuBadgeReparaciones) {
         const totalActivas = cAceptada + cPresupuesto + cTaller + cTerminada;
         menuBadgeReparaciones.textContent = String(totalActivas);
+        try {
+            localStorage.setItem(REPARACIONES_BADGE_CACHE_KEY, String(totalActivas));
+        } catch (_err) {
+            // El contador visual igualmente queda actualizado.
+        }
     }
 }
 
@@ -2092,7 +2143,7 @@ async function bootstrapApp() {
     dibujarTablaItemsVenta();
     mostrarSeccion('cobrar');
     const tareasInicio = [
-        fetchAndRenderSafe('cargar ordenes iniciales'),
+        cargarOrdenesIniciales(),
         cargarCaja(),
         cargarCatalogoArticulos(),
         intentarPersistenciaStorage()

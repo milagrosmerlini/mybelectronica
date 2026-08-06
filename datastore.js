@@ -251,6 +251,17 @@ async function cloudGetOrders() {
   return ordenarOrdersDesc(out);
 }
 
+async function cloudGetOrdersPreview() {
+  const cfg = getCloudConfig();
+  const rowsOrders = await supabaseRequest(`${cfg.ordersTable}?select=id,payload`);
+  const out = (rowsOrders || []).map((row) => {
+    const payload = row && row.payload && typeof row.payload === 'object' ? row.payload : {};
+    const id = row && row.id ? String(row.id) : String(payload.id || `ord_${Date.now()}`);
+    return Object.assign({}, payload, { id, fotos: [] });
+  });
+  return ordenarOrdersDesc(out);
+}
+
 async function cloudAddOrder(order, photoEntries) {
   const cfg = getCloudConfig();
   const id = String(order && order.id ? order.id : `ord_${Date.now()}_${Math.random().toString(16).slice(2, 7)}`);
@@ -609,41 +620,28 @@ async function localGetOrders() {
     const tx = db.transaction([STORE_ORDERS, STORE_PHOTOS], 'readonly');
     const ordersStore = tx.objectStore(STORE_ORDERS);
     const photosStore = tx.objectStore(STORE_PHOTOS);
-    const req = ordersStore.getAll();
+    const ordersReq = ordersStore.getAll();
+    const photosReq = photosStore.getAll();
 
-    req.onsuccess = async () => {
-      const orders = req.result || [];
-
-      for (const ord of orders) {
-        const idx = photosStore.index('by_order');
-        const photosForOrder = [];
-        const pReq = idx.openCursor(IDBKeyRange.only(ord.id));
-
-        await new Promise((res) => {
-          pReq.onsuccess = function (ev) {
-            const c = ev.target.result;
-            if (c) {
-              photosForOrder.push(c.value);
-              c.continue();
-            } else {
-              res();
-            }
-          };
-          pReq.onerror = () => res();
-        });
-
-        ord.fotos = photosForOrder
-          .map((p) => (p && typeof p.dataUrl === 'string' ? p.dataUrl : ''))
-          .filter(Boolean);
+    tx.oncomplete = () => {
+      const fotosPorOrden = new Map();
+      for (const foto of (photosReq.result || [])) {
+        const orderId = String(foto && foto.orderId ? foto.orderId : '');
+        if (!orderId || !foto || typeof foto.dataUrl !== 'string' || !foto.dataUrl) continue;
+        if (!fotosPorOrden.has(orderId)) fotosPorOrden.set(orderId, []);
+        fotosPorOrden.get(orderId).push(foto.dataUrl);
       }
 
+      const orders = (ordersReq.result || []).map((order) => Object.assign({}, order, {
+        fotos: fotosPorOrden.get(String(order.id)) || []
+      }));
       db.close();
       resolve(ordenarOrdersDesc(orders));
     };
 
-    req.onerror = () => {
+    tx.onerror = () => {
       db.close();
-      reject(req.error);
+      reject(tx.error || ordersReq.error || photosReq.error);
     };
   });
 }
@@ -964,6 +962,25 @@ async function getOrders() {
   }
 }
 
+// Lectura inmediata de la copia del dispositivo. La interfaz la usa antes de
+// sincronizar con la nube para no quedar bloqueada por la red o por las fotos.
+async function getCachedOrders() {
+  return localGetOrders();
+}
+
+// Obtiene los datos y estados actuales sin descargar las fotos en base64.
+// Es mucho mas liviano y permite corregir los contadores casi de inmediato.
+async function getOrdersPreview() {
+  if (!usarCloud()) return localGetOrders();
+  try {
+    return await cloudGetOrdersPreview();
+  } catch (err) {
+    const detalle = err && err.message ? String(err.message) : String(err || 'error desconocido');
+    console.warn('No se pudo leer el resumen desde Supabase. Se usa cache local.', detalle);
+    return localGetOrders();
+  }
+}
+
 async function exportAll() {
   return localExportAll();
 }
@@ -1029,6 +1046,8 @@ export default {
   updateOrder,
   deleteOrder,
   getOrders,
+  getCachedOrders,
+  getOrdersPreview,
   exportAll,
   importFromArray,
   getFinanceState,

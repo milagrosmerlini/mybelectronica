@@ -321,20 +321,62 @@ function uiEditarOrden(rep) {
             { key: 'marca', label: 'Marca', value: rep && rep.marca, required: true },
             { key: 'modelo', label: 'Modelo', value: rep && rep.modelo, required: false },
             { key: 'serie', label: 'Numero de serie / IMEI', value: rep && rep.serie, required: false },
-            { key: 'falla', label: 'Falla reportada', value: rep && rep.falla, required: true, multiline: true }
+            { key: 'falla', label: 'Falla reportada', value: rep && rep.falla, required: true, multiline: true, fullWidth: true },
+            {
+                key: 'detallePresupuesto',
+                label: 'Descripcion / diagnostico tecnico',
+                value: rep && (rep.detallePresupuesto || rep.detalle_presupuesto),
+                required: false,
+                multiline: true,
+                fullWidth: true
+            },
+            {
+                key: 'precioPresupuesto',
+                label: 'Importe de la reparacion',
+                value: rep && (rep.precioPresupuesto || rep.precio_presupuesto),
+                required: false,
+                inputMode: 'numeric'
+            },
+            {
+                key: 'estado',
+                label: 'Estado',
+                value: rep && rep.estado,
+                required: true,
+                options: ['Aceptada', 'Presupuestada', 'En Reparación', 'Terminada', 'Archivada']
+            },
+            {
+                key: 'resultado',
+                label: 'Resultado',
+                value: rep && rep.fueReparado === false ? 'No reparado' : 'Reparado / en proceso',
+                required: true,
+                options: ['Reparado / en proceso', 'No reparado']
+            }
         ];
 
         const inputs = {};
         for (const campo of campos) {
             const wrap = document.createElement('label');
             wrap.className = 'app-edit-field';
+            if (campo.fullWidth) wrap.classList.add('app-edit-field-full');
 
             const label = document.createElement('span');
             label.textContent = campo.required ? `${campo.label} *` : `${campo.label} (Opcional)`;
 
-            const input = campo.multiline ? document.createElement('textarea') : document.createElement('input');
+            let input;
+            if (campo.options) {
+                input = document.createElement('select');
+                for (const optionValue of campo.options) {
+                    const option = document.createElement('option');
+                    option.value = optionValue;
+                    option.textContent = optionValue;
+                    input.appendChild(option);
+                }
+            } else {
+                input = campo.multiline ? document.createElement('textarea') : document.createElement('input');
+            }
             input.className = 'app-dialog-input';
-            if (!campo.multiline) input.type = 'text';
+            if (!campo.multiline && !campo.options) input.type = 'text';
+            if (campo.inputMode) input.inputMode = campo.inputMode;
             input.value = String(campo.value || '');
 
             inputs[campo.key] = input;
@@ -378,7 +420,9 @@ function uiEditarOrden(rep) {
                 ['nombre', 'Nombre'],
                 ['tipoArticulo', 'Tipo de articulo'],
                 ['marca', 'Marca'],
-                ['falla', 'Falla reportada']
+                ['falla', 'Falla reportada'],
+                ['estado', 'Estado'],
+                ['resultado', 'Resultado']
             ];
 
             for (const [key, label] of requeridos) {
@@ -390,6 +434,16 @@ function uiEditarOrden(rep) {
             }
 
             const tipo = obtener('tipoArticulo').toUpperCase();
+            const detalle = obtener('detallePresupuesto').toUpperCase();
+            const precioIngresado = obtener('precioPresupuesto');
+            const precio = normalizarPrecioGuardado(precioIngresado);
+            const fueReparado = obtener('resultado') !== 'No reparado';
+            if (precioIngresado && !precio) {
+                errorEl.textContent = 'El importe debe contener un numero valido.';
+                inputs.precioPresupuesto.focus();
+                return;
+            }
+
             close({
                 nombre: obtener('nombre').toUpperCase(),
                 apellido: obtener('apellido').toUpperCase(),
@@ -399,7 +453,14 @@ function uiEditarOrden(rep) {
                 marca: obtener('marca').toUpperCase(),
                 modelo: obtener('modelo').toUpperCase(),
                 serie: obtener('serie').toUpperCase(),
-                falla: obtener('falla').toUpperCase()
+                falla: obtener('falla').toUpperCase(),
+                detallePresupuesto: detalle,
+                detalle_presupuesto: detalle,
+                precioPresupuesto: precio,
+                precio_presupuesto: precio,
+                estado: normalizarEstado(obtener('estado')),
+                fueReparado,
+                fue_reparado: fueReparado
             });
         };
 
@@ -729,6 +790,13 @@ function obtenerNombreCliente(rep) {
         .map((v) => String(v || '').trim())
         .filter(Boolean);
     return partes.join(', ') || 'Cliente sin nombre';
+}
+
+function obtenerNombreContacto(rep) {
+    const partes = [rep && rep.nombre, rep && rep.apellido]
+        .map((v) => String(v || '').trim())
+        .filter(Boolean);
+    return `MyB - ${partes.join(' ') || 'Cliente'}`;
 }
 
 function obtenerDescripcionEquipo(rep) {
@@ -1424,6 +1492,7 @@ function dibujarLista() {
             bloqueFotos +
             `<div class="acciones">` +
                 botoneraFlujo +
+                `<button class="btn-contacto" data-action="contacto">Agendar contacto</button>` +
                 `<button class="btn-whatsapp" data-action="whatsapp">Enviar WhatsApp</button>` +
                 `<button class="btn-editar" data-action="editar">Editar</button>` +
                 `<button class="btn-borrar" data-action="eliminar">Eliminar</button>` +
@@ -1437,6 +1506,10 @@ function dibujarLista() {
 
         div.querySelector('[data-action="whatsapp"]').addEventListener('click', () => {
             enviarWhatsAppDirecto(rep);
+        });
+
+        div.querySelector('[data-action="contacto"]').addEventListener('click', () => {
+            agendarContacto(rep);
         });
 
         div.querySelector('[data-action="editar"]').addEventListener('click', async () => {
@@ -1638,6 +1711,116 @@ function construirMensajeWhatsApp(rep) {
     }
 
     return `Hola *${rep.nombre}*, tenemos novedades sobre tu orden *N° ${numeroOrden}*.`;
+}
+
+function escaparExtraIntent(valor) {
+    return encodeURIComponent(String(valor || ''));
+}
+
+function obtenerTelefonoContacto(rep) {
+    const telefono = limpiarNumeroTelefonoFijo(rep && rep.telefono);
+    return telefono ? `+${telefono}` : '';
+}
+
+function obtenerNotaContacto(rep) {
+    const numeroOrden = extraerNumeroOrden(rep) || rep.idOrden || rep.id;
+    const equipo = obtenerDescripcionEquipo(rep);
+    return `Cliente de MyB Electrónica. Orden N° ${numeroOrden}. Equipo: ${equipo}.`;
+}
+
+function construirIntentContactoAndroid(rep) {
+    const nombre = obtenerNombreContacto(rep);
+    const telefono = obtenerTelefonoContacto(rep);
+    const nota = obtenerNotaContacto(rep);
+
+    return 'intent:#Intent;' +
+        'action=android.intent.action.INSERT;' +
+        'type=vnd.android.cursor.dir/contact;' +
+        `S.name=${escaparExtraIntent(nombre)};` +
+        `S.phone=${escaparExtraIntent(telefono)};` +
+        `S.company=${escaparExtraIntent('MyB Electrónica')};` +
+        `S.notes=${escaparExtraIntent(nota)};` +
+        'B.finishActivityOnSaveCompleted=true;' +
+        'end';
+}
+
+function escaparValorVCard(valor) {
+    return String(valor || '')
+        .replace(/\\/g, '\\\\')
+        .replace(/\r?\n/g, '\\n')
+        .replace(/;/g, '\\;')
+        .replace(/,/g, '\\,');
+}
+
+function descargarContactoVCard(rep) {
+    const nombre = obtenerNombreContacto(rep);
+    const telefono = obtenerTelefonoContacto(rep);
+    const nota = obtenerNotaContacto(rep);
+    const contenido = [
+        'BEGIN:VCARD',
+        'VERSION:3.0',
+        `FN:${escaparValorVCard(nombre)}`,
+        `N:${escaparValorVCard(nombre)};;;;`,
+        `ORG:${escaparValorVCard('MyB Electrónica')}`,
+        `TEL;TYPE=CELL:${escaparValorVCard(telefono)}`,
+        `NOTE:${escaparValorVCard(nota)}`,
+        'END:VCARD'
+    ].join('\r\n');
+
+    const blob = new Blob([contenido], { type: 'text/vcard;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    const nombreArchivo = nombre.replace(/[^a-z0-9_-]+/gi, '-').replace(/^-+|-+$/g, '') || 'cliente-myb';
+    link.href = url;
+    link.download = `${nombreArchivo}.vcf`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+function agendarContacto(rep) {
+    if (!rep || !rep.telefono || !obtenerTelefonoContacto(rep)) {
+        uiAlert('Este cliente no tiene un telefono valido para agendar.', { title: 'Telefono faltante' });
+        return;
+    }
+
+    const esAndroid = /Android/i.test(navigator.userAgent || '');
+    if (!esAndroid) {
+        descargarContactoVCard(rep);
+        uiAlert('Se preparo el contacto. Abri el archivo descargado y toca Guardar.', { title: 'Contacto preparado' });
+        return;
+    }
+
+    let seAbrioContactos = false;
+    let fallbackTimer = null;
+
+    const limpiarSeguimiento = () => {
+        if (fallbackTimer) window.clearTimeout(fallbackTimer);
+        document.removeEventListener('visibilitychange', alCambiarVisibilidad);
+    };
+
+    const alCambiarVisibilidad = () => {
+        if (document.hidden) {
+            seAbrioContactos = true;
+            if (fallbackTimer) window.clearTimeout(fallbackTimer);
+            return;
+        }
+
+        if (seAbrioContactos) limpiarSeguimiento();
+    };
+
+    document.addEventListener('visibilitychange', alCambiarVisibilidad);
+    fallbackTimer = window.setTimeout(() => {
+        if (seAbrioContactos || document.hidden) return;
+        limpiarSeguimiento();
+        descargarContactoVCard(rep);
+        uiAlert('El telefono bloqueo la apertura directa de Contactos. Abri el archivo descargado y toca Guardar.', {
+            title: 'Contacto preparado'
+        });
+    }, 1800);
+
+    window.location.href = construirIntentContactoAndroid(rep);
 }
 
 function enviarWhatsAppDirecto(rep) {

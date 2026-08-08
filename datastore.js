@@ -244,7 +244,9 @@ async function cloudGetOrders() {
   const out = (rowsOrders || []).map((row) => {
     const payload = row && row.payload && typeof row.payload === 'object' ? row.payload : {};
     const id = row && row.id ? String(row.id) : String(payload.id || `ord_${Date.now()}`);
-    const fotos = fotosPorOrden.get(id) || [];
+    const fotosSeparadas = fotosPorOrden.get(id) || [];
+    const fotosEnPayload = Array.isArray(payload.fotos) ? payload.fotos.filter(Boolean) : [];
+    const fotos = fotosSeparadas.length ? fotosSeparadas : fotosEnPayload;
     return Object.assign({}, payload, { id, fotos });
   });
 
@@ -288,6 +290,27 @@ async function cloudAddOrder(order, photoEntries) {
   }
 
   return Object.assign({}, cleanOrder, { fotos: fotos.map((f) => f.dataUrl) });
+}
+
+async function cloudRecoverOrderPhotos(orderId, photos) {
+  const cfg = getCloudConfig();
+  const safeId = String(orderId || '').trim();
+  const validPhotos = (Array.isArray(photos) ? photos : [])
+    .map((dataUrl) => String(dataUrl || ''))
+    .filter(Boolean);
+  if (!safeId || !validPhotos.length) return false;
+
+  await supabaseRequest(`${cfg.photosTable}?on_conflict=id`, {
+    method: 'POST',
+    headers: { Prefer: 'resolution=merge-duplicates,return=minimal' },
+    body: validPhotos.map((dataUrl, index) => ({
+      id: `${safeId}_p_recovered_${index}`,
+      order_id: safeId,
+      name: `foto_recuperada_${index + 1}`,
+      data_url: dataUrl
+    }))
+  });
+  return true;
 }
 
 async function cloudUpdateOrder(id, updates) {
@@ -952,9 +975,31 @@ async function getOrders() {
       pendingCloudResync = false;
     }
 
+    const localOrders = await localGetOrders();
+    const fotosLocales = new Map(localOrders.map((order) => [String(order.id), order.fotos || []]));
     const cloudOrders = await cloudGetOrders();
-    await localReplaceOrdersFromArray(cloudOrders);
-    return cloudOrders;
+    const fotosParaRecuperar = [];
+    const mergedOrders = cloudOrders.map((order) => {
+      if (Array.isArray(order.fotos) && order.fotos.length) return order;
+      const fotosCacheadas = fotosLocales.get(String(order.id)) || [];
+      if (!fotosCacheadas.length) return order;
+      fotosParaRecuperar.push({ id: order.id, fotos: fotosCacheadas });
+      return Object.assign({}, order, { fotos: fotosCacheadas });
+    });
+
+    // Conserva las fotos locales si la nube aun no termino de recibirlas.
+    await localReplaceOrdersFromArray(mergedOrders);
+
+    for (const pendiente of fotosParaRecuperar) {
+      try {
+        await cloudRecoverOrderPhotos(pendiente.id, pendiente.fotos);
+      } catch (err) {
+        const detalle = err && err.message ? String(err.message) : String(err || 'error desconocido');
+        console.warn(`No se pudo recuperar fotos de la orden ${pendiente.id} en la nube.`, detalle);
+      }
+    }
+
+    return mergedOrders;
   } catch (err) {
     const detalle = err && err.message ? String(err.message) : String(err || 'error desconocido');
     console.warn('No se pudo leer desde Supabase. Se usa cache local.', detalle);

@@ -1,4 +1,4 @@
-﻿import datastore from './datastore.js?v=20260806-speed1';
+﻿import datastore from './datastore.js?v=20260807-fotos1';
 
 const lista = document.getElementById('listaReparaciones');
 const fotoInput = document.getElementById('fotoInput');
@@ -66,6 +66,7 @@ const dataSourceStatus = document.getElementById('data-source-status');
 const REPARACIONES_BADGE_CACHE_KEY = 'myb_reparaciones_activas';
 const AGENDA_VCF_PENDIENTES_KEY = 'myb_agenda_vcf_pendientes_v1';
 const AGENDA_VCF_REGISTRADOS_KEY = 'myb_agenda_vcf_registrados_v1';
+const VISTA_APP_KEY = 'myb_vista_actual_v1';
 try {
     const contadorGuardado = localStorage.getItem(REPARACIONES_BADGE_CACHE_KEY);
     if (menuBadgeReparaciones && /^\d+$/.test(contadorGuardado || '')) {
@@ -1282,6 +1283,33 @@ async function agregarMovimientoCaja({ caja, descripcion, importe, origen, orden
     await cargarCaja();
 }
 
+function guardarVistaActual() {
+    try {
+        localStorage.setItem(VISTA_APP_KEY, JSON.stringify({
+            seccion: seccionActual,
+            estadoReparaciones: estadoActualFiltrado
+        }));
+    } catch (_err) {
+        // La navegacion sigue funcionando aunque el almacenamiento este bloqueado.
+    }
+}
+
+function recuperarVistaGuardada() {
+    const seccionesValidas = new Set(['cobrar', 'reparaciones', 'caja']);
+    const estadosValidos = new Set(['Aceptada', 'Presupuestada', 'En Reparación', 'Terminada', 'Archivada']);
+    try {
+        const guardada = JSON.parse(localStorage.getItem(VISTA_APP_KEY) || '{}');
+        return {
+            seccion: seccionesValidas.has(guardada.seccion) ? guardada.seccion : 'cobrar',
+            estadoReparaciones: estadosValidos.has(guardada.estadoReparaciones)
+                ? guardada.estadoReparaciones
+                : 'Aceptada'
+        };
+    } catch (_err) {
+        return { seccion: 'cobrar', estadoReparaciones: 'Aceptada' };
+    }
+}
+
 function mostrarSeccion(nombre) {
     seccionActual = nombre;
 
@@ -1296,6 +1324,7 @@ function mostrarSeccion(nombre) {
     menuCobrar.setAttribute('aria-selected', String(nombre === 'cobrar'));
     menuReparaciones.setAttribute('aria-selected', String(nombre === 'reparaciones'));
     menuCaja.setAttribute('aria-selected', String(nombre === 'caja'));
+    guardarVistaActual();
 }
 
 async function migrarOrdenesSiHaceFalta(items) {
@@ -2111,6 +2140,7 @@ function filtrarPor(estado) {
     estadoActualFiltrado = estado;
     activarPestana(estado);
     dibujarLista();
+    guardarVistaActual();
 }
 
 tabAceptada.addEventListener('click', () => filtrarPor('Aceptada'));
@@ -2384,11 +2414,47 @@ function iniciarChequeoAutomaticoDeActualizaciones() {
         }
     });
 }
+function elementoTieneTecladoAbierto(elemento) {
+    if (!elemento || elemento === document.body) return false;
+    const tag = String(elemento.tagName || '').toLowerCase();
+    return tag === 'input' || tag === 'textarea' || tag === 'select' || elemento.isContentEditable;
+}
+
+function protegerBotonAtras() {
+    const estadoActual = history.state && typeof history.state === 'object' ? history.state : {};
+    if (!estadoActual.mybNavigationGuard) {
+        history.replaceState(Object.assign({}, estadoActual, { mybNavigationRoot: true }), '');
+        history.pushState({ mybNavigationGuard: true }, '');
+    }
+
+    window.addEventListener('popstate', () => {
+        const activo = document.activeElement;
+        if (elementoTieneTecladoAbierto(activo)) {
+            activo.blur();
+        } else if (!photoViewer.classList.contains('hidden')) {
+            photoViewer.classList.add('hidden');
+        } else if (document.querySelector('.app-dialog-backdrop')) {
+            document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+        } else if (listaArticulos && !listaArticulos.classList.contains('hidden')) {
+            listaArticulos.classList.add('hidden');
+        }
+
+        // Repone una entrada interna para que el siguiente toque en Atras vuelva
+        // a cerrar primero la interfaz y nunca saque al usuario de la aplicacion.
+        window.setTimeout(() => {
+            history.pushState({ mybNavigationGuard: true }, '');
+        }, 0);
+    });
+}
+
 async function bootstrapApp() {
     actualizarIndicadorOrigenDatos();
     dibujarTablaItemsVenta();
     cargarEstadoAgendaVcf();
-    mostrarSeccion('cobrar');
+    const vistaGuardada = recuperarVistaGuardada();
+    estadoActualFiltrado = vistaGuardada.estadoReparaciones;
+    activarPestana(estadoActualFiltrado);
+    mostrarSeccion(vistaGuardada.seccion);
     const tareasInicio = [
         cargarOrdenesIniciales(),
         cargarCaja(),
@@ -2397,6 +2463,8 @@ async function bootstrapApp() {
     ];
     await Promise.all(tareasInicio);
 }
+
+protegerBotonAtras();
 
 bootstrapApp().catch((err) => {
     console.error('Error al iniciar app:', err);
@@ -2415,6 +2483,7 @@ if ('serviceWorker' in navigator) {
 
             if (serviceWorkerReloadTriggered) return;
             serviceWorkerReloadTriggered = true;
+            guardarVistaActual();
             window.location.reload();
         });
 

@@ -807,7 +807,7 @@ function obtenerNombreContacto(rep) {
     const nombre = partes.join(' ')
         .toLocaleLowerCase('es-AR')
         .replace(/(^|[\s'-])\p{L}/gu, (letra) => letra.toLocaleUpperCase('es-AR'));
-    return `MyB - ${nombre || 'Cliente'}`;
+    return `Myb ${nombre || 'Cliente'}`;
 }
 
 function obtenerDescripcionEquipo(rep) {
@@ -1758,8 +1758,10 @@ function claveTelefonoAgenda(valor) {
 function normalizarContactoAgenda(raw) {
     const telefono = normalizarTelefonoAgenda(raw && raw.telefono);
     const clave = claveTelefonoAgenda(telefono);
-    const nombre = String(raw && raw.nombre || '').trim();
-    if (!clave || !nombre) return null;
+    const nombreGuardado = String(raw && raw.nombre || '').trim();
+    const nombrePersona = nombreGuardado.replace(/^myb(?:\s*-\s*|\s+)/i, '').trim();
+    const nombre = `Myb ${nombrePersona || 'Cliente'}`;
+    if (!clave) return null;
     return { nombre, telefono, clave };
 }
 

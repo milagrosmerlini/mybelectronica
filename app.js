@@ -12,6 +12,9 @@ const buscar = document.getElementById('buscar');
 const btnRefrescar = document.getElementById('btn-refrescar');
 const btnActualizarApp = document.getElementById('btn-actualizar-app');
 const estadoActualizacionApp = document.getElementById('estado-actualizacion-app');
+const btnAgendaVcf = document.getElementById('btn-agenda-vcf');
+const agendaVcfContador = document.getElementById('agenda-vcf-contador');
+const agendaVcfEstado = document.getElementById('agenda-vcf-estado');
 const menuCobrar = document.getElementById('menu-cobrar');
 const menuReparaciones = document.getElementById('menu-reparaciones');
 const menuCaja = document.getElementById('menu-caja');
@@ -61,6 +64,8 @@ const viewerTotal = document.getElementById('viewerTotal');
 const dataSourceStatus = document.getElementById('data-source-status');
 
 const REPARACIONES_BADGE_CACHE_KEY = 'myb_reparaciones_activas';
+const AGENDA_VCF_PENDIENTES_KEY = 'myb_agenda_vcf_pendientes_v1';
+const AGENDA_VCF_REGISTRADOS_KEY = 'myb_agenda_vcf_registrados_v1';
 try {
     const contadorGuardado = localStorage.getItem(REPARACIONES_BADGE_CACHE_KEY);
     if (menuBadgeReparaciones && /^\d+$/.test(contadorGuardado || '')) {
@@ -78,6 +83,8 @@ let serviceWorkerReloadTriggered = false;
 let serviceWorkerHadControllerAtBoot = false;
 let serviceWorkerUpdateIntervalId = null;
 let reparaciones = [];
+let contactosAgendaPendientes = [];
+let telefonosAgendaRegistrados = new Set();
 let proximoNumeroOrden = 1;
 let estadoActualFiltrado = 'Aceptada';
 let viewerPhotos = [];
@@ -796,7 +803,10 @@ function obtenerNombreContacto(rep) {
     const partes = [rep && rep.nombre, rep && rep.apellido]
         .map((v) => String(v || '').trim())
         .filter(Boolean);
-    return `MyB - ${partes.join(' ') || 'Cliente'}`;
+    const nombre = partes.join(' ')
+        .toLocaleLowerCase('es-AR')
+        .replace(/(^|[\s'-])\p{L}/gu, (letra) => letra.toLocaleUpperCase('es-AR'));
+    return `MyB - ${nombre || 'Cliente'}`;
 }
 
 function obtenerDescripcionEquipo(rep) {
@@ -1321,6 +1331,7 @@ async function aplicarOrdenes(items, { migrar = true } = {}) {
     liberarBlobUrlsRenderizados();
     const normalizados = (items || []).map((it, idx) => normalizarOrden(it, idx));
     reparaciones = normalizados;
+    agregarContactosAgendaDesdeOrdenes(reparaciones);
     blobUrlsRenderizados = reparaciones
         .flatMap((r) => Array.isArray(r.fotos) ? r.fotos : [])
         .filter((url) => typeof url === 'string' && url.startsWith('blob:'));
@@ -1492,7 +1503,6 @@ function dibujarLista() {
             bloqueFotos +
             `<div class="acciones">` +
                 botoneraFlujo +
-                `<button class="btn-contacto" data-action="contacto">Agendar contacto</button>` +
                 `<button class="btn-whatsapp" data-action="whatsapp">Enviar WhatsApp</button>` +
                 `<button class="btn-editar" data-action="editar">Editar</button>` +
                 `<button class="btn-borrar" data-action="eliminar">Eliminar</button>` +
@@ -1506,10 +1516,6 @@ function dibujarLista() {
 
         div.querySelector('[data-action="whatsapp"]').addEventListener('click', () => {
             enviarWhatsAppDirecto(rep);
-        });
-
-        div.querySelector('[data-action="contacto"]').addEventListener('click', () => {
-            agendarContacto(rep);
         });
 
         div.querySelector('[data-action="editar"]').addEventListener('click', async () => {
@@ -1713,37 +1719,6 @@ function construirMensajeWhatsApp(rep) {
     return `Hola *${rep.nombre}*, tenemos novedades sobre tu orden *N° ${numeroOrden}*.`;
 }
 
-function escaparExtraIntent(valor) {
-    return encodeURIComponent(String(valor || ''));
-}
-
-function obtenerTelefonoContacto(rep) {
-    const telefono = limpiarNumeroTelefonoFijo(rep && rep.telefono);
-    return telefono ? `+${telefono}` : '';
-}
-
-function obtenerNotaContacto(rep) {
-    const numeroOrden = extraerNumeroOrden(rep) || rep.idOrden || rep.id;
-    const equipo = obtenerDescripcionEquipo(rep);
-    return `Cliente de MyB Electrónica. Orden N° ${numeroOrden}. Equipo: ${equipo}.`;
-}
-
-function construirIntentContactoAndroid(rep) {
-    const nombre = obtenerNombreContacto(rep);
-    const telefono = obtenerTelefonoContacto(rep);
-    const nota = obtenerNotaContacto(rep);
-
-    return 'intent:#Intent;' +
-        'action=android.intent.action.INSERT;' +
-        'type=vnd.android.cursor.dir/contact;' +
-        `S.name=${escaparExtraIntent(nombre)};` +
-        `S.phone=${escaparExtraIntent(telefono)};` +
-        `S.company=${escaparExtraIntent('MyB Electrónica')};` +
-        `S.notes=${escaparExtraIntent(nota)};` +
-        'B.finishActivityOnSaveCompleted=true;' +
-        'end';
-}
-
 function escaparValorVCard(valor) {
     return String(valor || '')
         .replace(/\\/g, '\\\\')
@@ -1752,75 +1727,143 @@ function escaparValorVCard(valor) {
         .replace(/,/g, '\\,');
 }
 
-function descargarContactoVCard(rep) {
-    const nombre = obtenerNombreContacto(rep);
-    const telefono = obtenerTelefonoContacto(rep);
-    const nota = obtenerNotaContacto(rep);
-    const contenido = [
+function normalizarTelefonoAgenda(valor) {
+    return String(valor || '').replace(/\D/g, '');
+}
+
+function claveTelefonoAgenda(valor) {
+    let telefono = normalizarTelefonoAgenda(valor);
+    if (telefono.startsWith('549') && telefono.length > 10) telefono = telefono.slice(3);
+    else if (telefono.startsWith('54') && telefono.length > 10) telefono = telefono.slice(2);
+    if (telefono.startsWith('0')) telefono = telefono.slice(1);
+    return telefono;
+}
+
+function normalizarContactoAgenda(raw) {
+    const telefono = normalizarTelefonoAgenda(raw && raw.telefono);
+    const clave = claveTelefonoAgenda(telefono);
+    const nombre = String(raw && raw.nombre || '').trim();
+    if (!clave || !nombre) return null;
+    return { nombre, telefono, clave };
+}
+
+function actualizarVistaAgendaVcf() {
+    const cantidad = contactosAgendaPendientes.length;
+    if (agendaVcfContador) agendaVcfContador.textContent = String(cantidad);
+    if (btnAgendaVcf) btnAgendaVcf.disabled = cantidad === 0;
+    if (agendaVcfEstado) {
+        agendaVcfEstado.textContent = cantidad === 0
+            ? 'No hay contactos pendientes.'
+            : `${cantidad} contacto${cantidad === 1 ? '' : 's'} listo${cantidad === 1 ? '' : 's'} para descargar.`;
+    }
+}
+
+function guardarEstadoAgendaVcf() {
+    try {
+        localStorage.setItem(AGENDA_VCF_PENDIENTES_KEY, JSON.stringify(contactosAgendaPendientes));
+        localStorage.setItem(AGENDA_VCF_REGISTRADOS_KEY, JSON.stringify(Array.from(telefonosAgendaRegistrados)));
+        return true;
+    } catch (err) {
+        console.warn('No se pudo guardar la agenda VCF local:', err);
+        return false;
+    }
+}
+
+function cargarEstadoAgendaVcf() {
+    contactosAgendaPendientes = [];
+    telefonosAgendaRegistrados = new Set();
+
+    try {
+        const pendientesRaw = JSON.parse(localStorage.getItem(AGENDA_VCF_PENDIENTES_KEY) || '[]');
+        const registradosRaw = JSON.parse(localStorage.getItem(AGENDA_VCF_REGISTRADOS_KEY) || '[]');
+        const telefonosPendientes = new Set();
+
+        if (Array.isArray(pendientesRaw)) {
+            for (const raw of pendientesRaw) {
+                const contacto = normalizarContactoAgenda(raw);
+                if (!contacto || telefonosPendientes.has(contacto.clave)) continue;
+                telefonosPendientes.add(contacto.clave);
+                contactosAgendaPendientes.push(contacto);
+            }
+        }
+
+        if (Array.isArray(registradosRaw)) {
+            for (const raw of registradosRaw) {
+                const telefono = claveTelefonoAgenda(raw);
+                if (telefono) telefonosAgendaRegistrados.add(telefono);
+            }
+        }
+
+        for (const contacto of contactosAgendaPendientes) {
+            telefonosAgendaRegistrados.add(contacto.clave);
+        }
+    } catch (err) {
+        console.warn('No se pudo recuperar la agenda VCF local:', err);
+    }
+
+    guardarEstadoAgendaVcf();
+    actualizarVistaAgendaVcf();
+}
+
+function agregarContactoAgenda(rep, { guardar = true } = {}) {
+    const contacto = normalizarContactoAgenda({
+        nombre: obtenerNombreContacto(rep),
+        telefono: rep && rep.telefono
+    });
+    if (!contacto || telefonosAgendaRegistrados.has(contacto.clave)) return false;
+
+    contactosAgendaPendientes.push(contacto);
+    telefonosAgendaRegistrados.add(contacto.clave);
+    if (guardar) {
+        guardarEstadoAgendaVcf();
+        actualizarVistaAgendaVcf();
+    }
+    return true;
+}
+
+function agregarContactosAgendaDesdeOrdenes(ordenes) {
+    let huboCambios = false;
+    for (const rep of (Array.isArray(ordenes) ? ordenes : [])) {
+        if (agregarContactoAgenda(rep, { guardar: false })) huboCambios = true;
+    }
+    if (huboCambios) guardarEstadoAgendaVcf();
+    actualizarVistaAgendaVcf();
+}
+
+function construirVCardAgenda(contacto) {
+    return [
         'BEGIN:VCARD',
         'VERSION:3.0',
-        `FN:${escaparValorVCard(nombre)}`,
-        `N:${escaparValorVCard(nombre)};;;;`,
-        `ORG:${escaparValorVCard('MyB Electrónica')}`,
-        `TEL;TYPE=CELL:${escaparValorVCard(telefono)}`,
-        `NOTE:${escaparValorVCard(nota)}`,
+        `FN:${escaparValorVCard(contacto.nombre)}`,
+        `TEL:${contacto.telefono}`,
         'END:VCARD'
     ].join('\r\n');
+}
 
+async function descargarAgendaVcf() {
+    if (!contactosAgendaPendientes.length) {
+        await uiAlert('No hay contactos nuevos para descargar.', { title: 'Agenda al dia' });
+        return;
+    }
+
+    const cantidad = contactosAgendaPendientes.length;
+    const contenido = contactosAgendaPendientes.map(construirVCardAgenda).join('\r\n') + '\r\n';
     const blob = new Blob([contenido], { type: 'text/vcard;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
-    const nombreArchivo = nombre.replace(/[^a-z0-9_-]+/gi, '-').replace(/^-+|-+$/g, '') || 'cliente-myb';
     link.href = url;
-    link.download = `${nombreArchivo}.vcf`;
+    link.download = `agenda-myb-${claveDiaLocal(new Date())}.vcf`;
     document.body.appendChild(link);
     link.click();
     link.remove();
     window.setTimeout(() => URL.revokeObjectURL(url), 1000);
-}
 
-function agendarContacto(rep) {
-    if (!rep || !rep.telefono || !obtenerTelefonoContacto(rep)) {
-        uiAlert('Este cliente no tiene un telefono valido para agendar.', { title: 'Telefono faltante' });
-        return;
-    }
-
-    const esAndroid = /Android/i.test(navigator.userAgent || '');
-    if (!esAndroid) {
-        descargarContactoVCard(rep);
-        uiAlert('Se preparo el contacto. Abri el archivo descargado y toca Guardar.', { title: 'Contacto preparado' });
-        return;
-    }
-
-    let seAbrioContactos = false;
-    let fallbackTimer = null;
-
-    const limpiarSeguimiento = () => {
-        if (fallbackTimer) window.clearTimeout(fallbackTimer);
-        document.removeEventListener('visibilitychange', alCambiarVisibilidad);
-    };
-
-    const alCambiarVisibilidad = () => {
-        if (document.hidden) {
-            seAbrioContactos = true;
-            if (fallbackTimer) window.clearTimeout(fallbackTimer);
-            return;
-        }
-
-        if (seAbrioContactos) limpiarSeguimiento();
-    };
-
-    document.addEventListener('visibilitychange', alCambiarVisibilidad);
-    fallbackTimer = window.setTimeout(() => {
-        if (seAbrioContactos || document.hidden) return;
-        limpiarSeguimiento();
-        descargarContactoVCard(rep);
-        uiAlert('El telefono bloqueo la apertura directa de Contactos. Abri el archivo descargado y toca Guardar.', {
-            title: 'Contacto preparado'
-        });
-    }, 1800);
-
-    window.location.href = construirIntentContactoAndroid(rep);
+    contactosAgendaPendientes = [];
+    guardarEstadoAgendaVcf();
+    actualizarVistaAgendaVcf();
+    await uiAlert(`Se descargaron ${cantidad} contacto${cantidad === 1 ? '' : 's'}. Abri el archivo VCF y toca Importar o Guardar. La lista pendiente quedo vacia.`, {
+        title: 'Agenda descargada'
+    });
 }
 
 function enviarWhatsAppDirecto(rep) {
@@ -1987,6 +2030,7 @@ async function guardarOrdenManual() {
 
     const files = fotosTemporalesIngreso.map((f) => f.file).filter(Boolean);
     await datastore.addOrder(nuevaOrden, files);
+    agregarContactoAgenda(nuevaOrden);
 
     proximoNumeroOrden += 1;
 
@@ -2189,6 +2233,10 @@ btnRegistrarVenta.addEventListener('click', async () => {
     }
 });
 
+if (btnAgendaVcf) {
+    btnAgendaVcf.addEventListener('click', () => descargarAgendaVcf());
+}
+
 btnExport.addEventListener('click', async () => {
     const data = await datastore.exportAll();
     if (!Array.isArray(data) || data.length === 0) {
@@ -2324,6 +2372,7 @@ function iniciarChequeoAutomaticoDeActualizaciones() {
 async function bootstrapApp() {
     actualizarIndicadorOrigenDatos();
     dibujarTablaItemsVenta();
+    cargarEstadoAgendaVcf();
     mostrarSeccion('cobrar');
     const tareasInicio = [
         cargarOrdenesIniciales(),

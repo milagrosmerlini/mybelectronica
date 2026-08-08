@@ -1329,11 +1329,16 @@ async function migrarOrdenesSiHaceFalta(items) {
 }
 
 async function aplicarOrdenes(items, { migrar = true } = {}) {
-    const urlsEntrantes = new Set((items || [])
-        .flatMap((item) => Array.isArray(item?.fotos) ? item.fotos : [])
+    const fotosAnteriores = new Map(reparaciones.map((rep) => [String(rep.id), rep.fotos || []]));
+    const normalizados = (items || []).map((it, idx) => {
+        const orden = normalizarOrden(it, idx);
+        if (!orden.fotos.length) orden.fotos = fotosAnteriores.get(String(orden.id)) || [];
+        return orden;
+    });
+    const urlsEntrantes = new Set(normalizados
+        .flatMap((item) => Array.isArray(item.fotos) ? item.fotos : [])
         .filter((url) => typeof url === 'string' && url.startsWith('blob:')));
     liberarBlobUrlsRenderizados(urlsEntrantes);
-    const normalizados = (items || []).map((it, idx) => normalizarOrden(it, idx));
     reparaciones = normalizados;
     agregarContactosAgendaDesdeOrdenes(reparaciones);
     blobUrlsRenderizados = reparaciones
@@ -1452,6 +1457,10 @@ function dibujarLista() {
         const claseBorde = rep.estado === 'En Reparación' ? 'En-Reparacion' : rep.estado;
         div.className = 'registro borde-' + claseBorde.replace(/ /g, '-');
 
+        const nSerie = rep.serie
+            ? `<p><b>S/N u IMEI:</b> <span class="dato-resaltado">${rep.serie}</span></p>`
+            : '';
+
         let bloquePresupuesto = '';
         if (rep.estado === 'Archivada') {
             bloquePresupuesto = rep.fueReparado === false
@@ -1467,15 +1476,12 @@ function dibujarLista() {
                 `</div>`;
         }
 
-        let bloqueFotos = '<div class="fotos-reparacion"><div class="fotos-reparacion-titulo">FOTOS DEL EQUIPO</div>';
+        let bloqueFotos = '';
         if (rep.fotos && rep.fotos.length > 0) {
-            bloqueFotos += '<div class="galeria-fotos">' +
+            bloqueFotos = '<div class="galeria-fotos">' +
                 rep.fotos.map((url) => `<div class="foto-contenedor"><img src="${url}" class="foto-miniatura" data-url="${url}"></div>`).join('') +
                 '</div>';
-        } else {
-            bloqueFotos += '<div class="sin-fotos">SIN FOTOS CARGADAS</div>';
         }
-        bloqueFotos += '</div>';
 
         let botoneraFlujo = '';
         if (rep.estado === 'Aceptada') {
@@ -1494,27 +1500,14 @@ function dibujarLista() {
 
         const nroOrden = extraerNumeroOrden(rep) || rep.idOrden || rep.id;
         const cliente = obtenerNombreCliente(rep);
-        const fechaIngreso = formatearFechaMov(rep.created_at) || 'No registrada';
-        const detallePresupuesto = rep.detallePresupuesto || rep.detalle_presupuesto || 'Pendiente de carga';
-        const precioPresupuesto = rep.precioPresupuesto || rep.precio_presupuesto;
-        const precioVisible = precioPresupuesto ? `$${precioPresupuesto}` : 'Pendiente de carga';
+        const equipo = obtenerDescripcionEquipo(rep);
 
         div.innerHTML =
             `<div class="cliente"><span class="dato-resaltado">${cliente}</span> <span class="num-orden">Orden N° ${nroOrden}</span></div>` +
-            `<div class="ficha-detalles">` +
-                `<p><b>ESTADO:</b> <span class="dato-resaltado">${rep.estado}</span></p>` +
-                `<p><b>FECHA DE INGRESO:</b> ${fechaIngreso}</p>` +
-                `<p><b>NOMBRE:</b> <span class="dato-resaltado">${rep.nombre || 'No registrado'}</span></p>` +
-                `<p><b>APELLIDO:</b> <span class="dato-resaltado">${rep.apellido || 'No registrado'}</span></p>` +
-                `<p><b>TELEFONO:</b> ${rep.telefono || 'No registrado'}</p>` +
-                `<p><b>TIPO DE ARTICULO:</b> <span class="dato-resaltado">${rep.tipoArticulo || rep.tipo_articulo || 'No registrado'}</span></p>` +
-                `<p><b>MARCA:</b> <span class="dato-resaltado">${rep.marca || 'No registrada'}</span></p>` +
-                `<p><b>MODELO:</b> <span class="dato-resaltado">${rep.modelo || 'No registrado'}</span></p>` +
-                `<p><b>S/N u IMEI:</b> <span class="dato-resaltado">${rep.serie || 'No registrado'}</span></p>` +
-                `<p class="detalle-ancho"><b>PROBLEMA INICIAL:</b> <span class="dato-resaltado">${rep.falla || 'No registrado'}</span></p>` +
-                `<p class="detalle-ancho"><b>FALLA DETECTADA / TRABAJO:</b> <span class="dato-resaltado">${detallePresupuesto}</span></p>` +
-                `<p><b>COSTO DE REPARACION:</b> <span class="dato-resaltado">${precioVisible}</span></p>` +
-            `</div>` +
+            `<p><b>TELEFONO:</b> ${rep.telefono || 'No registrado'}</p>` +
+            `<p><b>EQUIPO:</b> <span class="dato-resaltado">${equipo}</span></p>` +
+            nSerie +
+            `<p><b>PROBLEMA INICIAL:</b> <span class="dato-resaltado">${rep.falla}</span></p>` +
             bloquePresupuesto +
             bloqueFotos +
             `<div class="acciones">` +

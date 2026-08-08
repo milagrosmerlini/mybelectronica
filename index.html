@@ -12,7 +12,7 @@
     <link rel="manifest" href="manifest.webmanifest">
     <link rel="icon" type="image/png" href="logoMyB.png">
     <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
-    <link rel="stylesheet" href="styles.css?v=20260807-agenda1">
+    <link rel="stylesheet" href="styles.css?v=20260807-agenda2">
 </head>
 <body>
 <div class="contenedor">
@@ -123,13 +123,6 @@
             <button type="button" class="btn-guardar-fijo" id="btn-guardar">+ AGREGAR NUEVA ORDEN</button>
         </div>
 
-        <div class="agenda-vcf-bar">
-            <button type="button" class="btn-agenda-vcf" id="btn-agenda-vcf" disabled>
-                Descargar agenda VCF <span class="agenda-vcf-contador" id="agenda-vcf-contador">0</span>
-            </button>
-            <span class="agenda-vcf-estado" id="agenda-vcf-estado">No hay contactos pendientes.</span>
-        </div>
-
         <h3>Ordenes de Trabajo</h3>
 
         <div class="pestanas">
@@ -149,8 +142,12 @@
         <div class="respaldo-bar respaldo-bottom">
             <button class="btn-respaldo" id="btn-export">Exportar JSON</button>
             <button class="btn-respaldo" id="btn-import">Importar JSON</button>
+            <button type="button" class="btn-respaldo btn-agenda-vcf" id="btn-agenda-vcf" disabled>
+                Descargar agenda VCF <span class="agenda-vcf-contador" id="agenda-vcf-contador">0</span>
+            </button>
             <button class="btn-respaldo btn-actualizar-app" id="btn-actualizar-app" type="button">Actualizar app</button>
             <input type="file" id="fileInput" style="display:none">
+            <span class="agenda-vcf-estado" id="agenda-vcf-estado">No hay contactos pendientes.</span>
             <span id="estado-actualizacion-app" class="estado-actualizacion-app" aria-live="polite"></span>
         </div>
     </section>
@@ -195,7 +192,7 @@
 </div>
 
 <script src="supabase-config.js?v=20260519-cloud3"></script>
-<script type="module" src="app.js?v=20260807-agenda1"></script>
+<script type="module" src="app.js?v=20260807-agenda2"></script>
 </body>
 </html>
 

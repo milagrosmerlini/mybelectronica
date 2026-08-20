@@ -62,6 +62,24 @@ const viewerImage = document.getElementById('viewerImage');
 const viewerIndex = document.getElementById('viewerIndex');
 const viewerTotal = document.getElementById('viewerTotal');
 const dataSourceStatus = document.getElementById('data-source-status');
+function navegarConEnter(event) {
+    if (event.key !== 'Enter' || event.ctrlKey || event.altKey || event.shiftKey || event.defaultPrevented) return;
+    const target = event.target;
+    if (!(target instanceof HTMLInputElement || target instanceof HTMLSelectElement)) return;
+    if (target.disabled || target.type === 'hidden' || target.type === 'file' || target.type === 'checkbox' || target.type === 'radio' || target.type === 'submit' || target.type === 'button') return;
+    if (target.id === 'buscar' || target.closest('.app-dialog-actions, .app-dialog-search')) return;
+
+    const scope = target.closest('.app-edit-form') || target.closest('#vista-cobrar .cobrar-bloque') || target.closest('#vista-reparaciones .panel-ingreso');
+    if (!scope) return;
+    const fields = Array.from(scope.querySelectorAll('input:not([type="hidden"]):not([type="file"]):not([type="checkbox"]):not([type="radio"]):not([disabled]), select:not([disabled])'))
+        .filter((field) => field.offsetParent !== null);
+    const next = fields[fields.indexOf(target) + 1];
+    if (!next) return;
+    event.preventDefault();
+    next.focus();
+}
+
+document.addEventListener('keydown', navegarConEnter);
 
 const REPARACIONES_BADGE_CACHE_KEY = 'myb_reparaciones_activas';
 const AGENDA_VCF_PENDIENTES_KEY = 'myb_agenda_vcf_pendientes_v1';

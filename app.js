@@ -1,4 +1,4 @@
-﻿import datastore from './datastore.js?v=20260807-fotos1';
+﻿import datastore from './datastore.js?v=20261001-syncsafe1';
 
 const lista = document.getElementById('listaReparaciones');
 const fotoInput = document.getElementById('fotoInput');

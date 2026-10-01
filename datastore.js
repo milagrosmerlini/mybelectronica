@@ -517,14 +517,12 @@ async function cloudReplaceAllFromLocal() {
 async function syncCloudAfterLocal(opName, cloudOp) {
   if (!usarCloud()) return false;
   try {
-    if (pendingCloudResync) {
-      await cloudReplaceAllFromLocal();
-      pendingCloudResync = false;
-      return true;
-    }
     if (typeof cloudOp === 'function') {
       await cloudOp();
     }
+    // Una falla anterior nunca autoriza a borrar la nube con la copia de un
+    // único teléfono: esa reposición podía descartar órdenes de otros equipos.
+    pendingCloudResync = false;
     return true;
   } catch (err) {
     pendingCloudResync = true;
@@ -970,14 +968,10 @@ async function getOrders() {
   if (!usarCloud()) return localGetOrders();
 
   try {
-    if (pendingCloudResync) {
-      await cloudReplaceAllFromLocal();
-      pendingCloudResync = false;
-    }
-
     const localOrders = await localGetOrders();
     const fotosLocales = new Map(localOrders.map((order) => [String(order.id), order.fotos || []]));
     const cloudOrders = await cloudGetOrders();
+    const cloudIds = new Set(cloudOrders.map((order) => String(order.id)));
     const fotosParaRecuperar = [];
     const mergedOrders = cloudOrders.map((order) => {
       if (Array.isArray(order.fotos) && order.fotos.length) return order;
@@ -987,8 +981,14 @@ async function getOrders() {
       return Object.assign({}, order, { fotos: fotosCacheadas });
     });
 
+    // Si una sincronización previa falló, las órdenes que solo están en este
+    // dispositivo también se conservan. Una lectura de nube incompleta o vacía
+    // no puede borrar datos locales automáticamente.
+    const soloLocales = localOrders.filter((order) => !cloudIds.has(String(order.id)));
+    const ordersToKeep = mergedOrders.concat(soloLocales);
+
     // Conserva las fotos locales si la nube aun no termino de recibirlas.
-    await localReplaceOrdersFromArray(mergedOrders);
+    await localReplaceOrdersFromArray(ordersToKeep);
 
     for (const pendiente of fotosParaRecuperar) {
       try {
@@ -999,7 +999,7 @@ async function getOrders() {
       }
     }
 
-    return mergedOrders;
+    return ordersToKeep;
   } catch (err) {
     const detalle = err && err.message ? String(err.message) : String(err || 'error desconocido');
     console.warn('No se pudo leer desde Supabase. Se usa cache local.', detalle);
@@ -1042,11 +1042,6 @@ async function getFinanceState() {
   if (!usarCloud()) return localGetFinanceState();
 
   try {
-    if (pendingCloudResync) {
-      await cloudReplaceAllFromLocal();
-      pendingCloudResync = false;
-    }
-
     const cloudState = await cloudGetFinanceState();
     await localSetFinanceState(cloudState);
     return cloudState;

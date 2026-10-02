@@ -1,4 +1,4 @@
-﻿import datastore from './datastore.js?v=20261001-syncsafe1';
+﻿import datastore from './datastore.js?v=20261001-emptyguard1';
 
 const lista = document.getElementById('listaReparaciones');
 const fotoInput = document.getElementById('fotoInput');
@@ -1376,8 +1376,18 @@ async function migrarOrdenesSiHaceFalta(items) {
 }
 
 async function aplicarOrdenes(items, { migrar = true } = {}) {
+    const entrantes = Array.isArray(items) ? items : [];
+
+    // La pantalla puede recibir primero la copia local y luego un resumen de
+    // nube. Si ese resumen llega vacío por una respuesta transitoria, no debe
+    // borrar lo que el usuario ya estaba viendo ni llevar los contadores a 0.
+    if (!entrantes.length && reparaciones.length) {
+        console.warn('Se ignoró una respuesta vacía para conservar las órdenes ya cargadas.');
+        return false;
+    }
+
     const fotosAnteriores = new Map(reparaciones.map((rep) => [String(rep.id), rep.fotos || []]));
-    const normalizados = (items || []).map((it, idx) => {
+    const normalizados = entrantes.map((it, idx) => {
         const orden = normalizarOrden(it, idx);
         if (!orden.fotos.length) orden.fotos = fotosAnteriores.get(String(orden.id)) || [];
         return orden;

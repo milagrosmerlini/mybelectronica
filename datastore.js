@@ -228,18 +228,42 @@ function ordenarOrdersDesc(items) {
 
 async function cloudGetOrders() {
   const cfg = getCloudConfig();
-  const [rowsOrders, rowsPhotos] = await Promise.all([
-    supabaseRequest(`${cfg.ordersTable}?select=id,payload`),
-    supabaseRequest(`${cfg.photosTable}?select=id,order_id,name,data_url`)
-  ]);
+  const rowsOrders = await supabaseRequest(`${cfg.ordersTable}?select=id,payload`);
 
+  // No pedir todas las imágenes en una sola respuesta: las fotos son base64 y
+  // esa respuesta gigante falla en algunos navegadores. Cada orden se pide por
+  // separado, con pocas conexiones simultáneas y un reintento.
   const fotosPorOrden = new Map();
-  for (const p of (rowsPhotos || [])) {
-    const key = String(p.order_id || '');
-    if (!key) continue;
-    if (!fotosPorOrden.has(key)) fotosPorOrden.set(key, []);
-    if (p.data_url) fotosPorOrden.get(key).push(String(p.data_url));
+  const pendientes = Array.from(rowsOrders || []);
+  let indice = 0;
+  async function descargarSiguiente() {
+    while (indice < pendientes.length) {
+      const row = pendientes[indice++];
+      const payload = row && row.payload && typeof row.payload === 'object' ? row.payload : {};
+      const id = row && row.id ? String(row.id) : String(payload.id || '');
+      if (!id) continue;
+
+      let fotos = [];
+      for (let intento = 0; intento < 2; intento += 1) {
+        try {
+          fotos = await supabaseRequest(
+            `${cfg.photosTable}?order_id=${encodeEq(id)}&select=id,order_id,name,data_url`
+          );
+          break;
+        } catch (err) {
+          if (intento === 1) console.warn(`No se pudieron descargar las fotos de la orden ${id}.`, err);
+          else await new Promise((resolve) => setTimeout(resolve, 350));
+        }
+      }
+      fotosPorOrden.set(id, (fotos || [])
+        .map((foto) => foto && foto.data_url ? String(foto.data_url) : '')
+        .filter(Boolean));
+    }
   }
+  await Promise.all(Array.from(
+    { length: Math.min(3, pendientes.length) },
+    () => descargarSiguiente()
+  ));
 
   const out = (rowsOrders || []).map((row) => {
     const payload = row && row.payload && typeof row.payload === 'object' ? row.payload : {};

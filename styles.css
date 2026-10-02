@@ -45,6 +45,10 @@ h2, h3 { text-align: center; color: #1a252f; }
 .menu-btn:hover {
     color: #1f2d3b;
 }
+.menu-btn:disabled {
+    cursor: wait;
+    opacity: 0.58;
+}
 .menu-btn.activo {
     color: #0f1720;
     border-bottom-color: #1f2937;
@@ -78,6 +82,8 @@ h2, h3 { text-align: center; color: #1a252f; }
     background: #dc2626;
 }
 .vista-app.hidden { display: none; }
+.vista-app.is-loading { pointer-events: none; opacity: 0.58; }
+.estado-carga-reparaciones { margin: 18px 0; padding: 16px; text-align: center; font-weight: 700; color: #475569; background: #ffffff; border-radius: 8px; }
 .titulo-seccion { margin-top: 0; margin-bottom: 10px; }
 .panel-resumen-cobrar { background: #fff; border-radius: 10px; padding: 16px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 20px; }
 .caja-mensual-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }

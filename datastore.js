@@ -1018,7 +1018,12 @@ async function getCachedOrders() {
 async function getOrdersPreview() {
   if (!usarCloud()) return localGetOrders();
   try {
-    return await cloudGetOrdersPreview();
+    const preview = await cloudGetOrdersPreview();
+    // Una respuesta vacía no puede reemplazar una copia existente mientras se
+    // está iniciando la aplicación. Esto protege contador, pestañas y lista.
+    if (preview.length) return preview;
+    const cached = await localGetOrders();
+    return cached.length ? cached : preview;
   } catch (err) {
     const detalle = err && err.message ? String(err.message) : String(err || 'error desconocido');
     console.warn('No se pudo leer el resumen desde Supabase. Se usa cache local.', detalle);

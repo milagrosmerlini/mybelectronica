@@ -1,4 +1,4 @@
-﻿import datastore from './datastore.js?v=20261001-emptyguard1';
+﻿import datastore from './datastore.js?v=20261001-startready1';
 
 const lista = document.getElementById('listaReparaciones');
 const fotoInput = document.getElementById('fotoInput');
@@ -85,14 +85,9 @@ const REPARACIONES_BADGE_CACHE_KEY = 'myb_reparaciones_activas';
 const AGENDA_VCF_PENDIENTES_KEY = 'myb_agenda_vcf_pendientes_v1';
 const AGENDA_VCF_REGISTRADOS_KEY = 'myb_agenda_vcf_registrados_v1';
 const VISTA_APP_KEY = 'myb_vista_actual_v1';
-try {
-    const contadorGuardado = localStorage.getItem(REPARACIONES_BADGE_CACHE_KEY);
-    if (menuBadgeReparaciones && /^\d+$/.test(contadorGuardado || '')) {
-        menuBadgeReparaciones.textContent = contadorGuardado;
-    }
-} catch (_err) {
-    // localStorage puede estar deshabilitado; IndexedDB actualizara el valor enseguida.
-}
+// El contador se completa solo con el resumen sincronizado. Mostrar una cifra
+// guardada del teléfono y corregirla después daba una impresión equivocada.
+if (menuBadgeReparaciones) menuBadgeReparaciones.textContent = '…';
 
 const SW_UPDATE_CHECK_INTERVAL_MS = 60 * 1000;
 
@@ -102,6 +97,7 @@ let serviceWorkerReloadTriggered = false;
 let serviceWorkerHadControllerAtBoot = false;
 let serviceWorkerUpdateIntervalId = null;
 let reparaciones = [];
+let reparacionesListas = false;
 let contactosAgendaPendientes = [];
 let telefonosAgendaRegistrados = new Set();
 let proximoNumeroOrden = 1;
@@ -1421,33 +1417,20 @@ async function fetchAndRender() {
 
 async function cargarOrdenesIniciales() {
     try {
-        const cache = await datastore.getCachedOrders();
-        if (Array.isArray(cache) && cache.length) {
-            await aplicarOrdenes(cache, { migrar: false });
-        }
-    } catch (err) {
-        console.warn('No se pudo mostrar la cache local de ordenes:', err);
-    }
-
-    // La sincronizacion completa (incluidas las fotos) avanza en paralelo.
-    let sincronizacionCompletaFinalizada = false;
-    const sincronizacionCompleta = fetchAndRenderSafe('sincronizar ordenes iniciales')
-        .finally(() => { sincronizacionCompletaFinalizada = true; });
-
-    try {
+        // Primero llega el resumen de la nube (sin fotos), que es pequeño y
+        // contiene los estados exactos para los contadores y las pestañas.
         const resumenNube = await datastore.getOrdersPreview();
-        if (!sincronizacionCompletaFinalizada && Array.isArray(resumenNube)) {
-            const fotosCacheadas = new Map(reparaciones.map((rep) => [String(rep.id), rep.fotos || []]));
-            const resumenConFotosCacheadas = resumenNube.map((rep) => Object.assign({}, rep, {
-                fotos: fotosCacheadas.get(String(rep.id)) || []
-            }));
-            await aplicarOrdenes(resumenConFotosCacheadas, { migrar: false });
-        }
+        await aplicarOrdenes(resumenNube, { migrar: false });
     } catch (err) {
-        console.warn('No se pudo mostrar el resumen de ordenes:', err);
+        console.warn('No se pudo cargar el resumen inicial de ordenes:', err);
+    } finally {
+        reparacionesListas = true;
+        menuReparaciones.disabled = false;
+        vistaReparaciones.classList.remove('is-loading');
     }
 
-    return sincronizacionCompleta;
+    // Las fotos, que pesan más, se completan luego sin cambiar los contadores.
+    await fetchAndRenderSafe('sincronizar fotos de ordenes');
 }
 
 function actualizarContadores() {
@@ -2411,7 +2394,12 @@ async function buscarActualizacionApp({ silencioso = false } = {}) {
     } catch (err) {
         console.warn('No se pudo buscar actualizaciones de la app:', err);
         if (!silencioso) {
-            actualizarEstadoActualizacionApp('No se pudo verificar actualizaciones. Reintenta.', 'is-error');
+            actualizarEstadoActualizacionApp('Recargando para buscar la version nueva...', 'is-checking');
+            window.setTimeout(() => {
+                const url = new URL(window.location.href);
+                url.searchParams.set('actualizar', String(Date.now()));
+                window.location.replace(url.toString());
+            }, 350);
         }
         return false;
     } finally {
@@ -2476,6 +2464,10 @@ function protegerBotonAtras() {
 }
 
 async function bootstrapApp() {
+    reparacionesListas = false;
+    menuReparaciones.disabled = true;
+    vistaReparaciones.classList.add('is-loading');
+    if (lista) lista.innerHTML = '<p class="estado-carga-reparaciones">Cargando reparaciones actualizadas...</p>';
     actualizarIndicadorOrigenDatos();
     dibujarTablaItemsVenta();
     cargarEstadoAgendaVcf();

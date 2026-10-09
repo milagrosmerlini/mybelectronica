@@ -1157,8 +1157,27 @@ function dibujarHistorialCaja(contenedor, items, textoVacio, tipoCaja) {
                 `<div class="historial-item-top">` +
                     `<span class="historial-item-monto">+$${monto}</span>` +
                     `<span class="historial-item-fecha">${fecha}</span>` +
-                `</div>` +
-                `<div class="historial-item-descripcion">${descripcion}</div>`;
+                `</div>`;
+
+            const itemsVenta = obtenerItemsVentaCaja(item);
+            if (itemsVenta.length) {
+                const detalleVenta = document.createElement('div');
+                detalleVenta.className = 'historial-venta-detalle';
+                for (const venta of itemsVenta) {
+                    const subtotal = venta.cantidad * venta.precioUnitario;
+                    const linea = document.createElement('div');
+                    linea.className = 'historial-venta-linea';
+                    linea.innerHTML = `<span>${venta.cantidad}x</span><span class="historial-venta-descripcion"></span><span>$${formatearNumeroEntero(venta.precioUnitario)}</span><b>$${formatearNumeroEntero(subtotal)}</b>`;
+                    linea.querySelector('.historial-venta-descripcion').textContent = venta.descripcion;
+                    detalleVenta.appendChild(linea);
+                }
+                contenido.appendChild(detalleVenta);
+            } else {
+                const descripcionEl = document.createElement('div');
+                descripcionEl.className = 'historial-item-descripcion';
+                descripcionEl.textContent = descripcion;
+                contenido.appendChild(descripcionEl);
+            }
 
             const acciones = document.createElement('div');
             acciones.className = 'historial-item-actions';
@@ -1239,10 +1258,93 @@ function dibujarHistorialCaja(contenedor, items, textoVacio, tipoCaja) {
     }
 }
 
+function obtenerItemsVentaCaja(item) {
+    const guardados = Array.isArray(item && item.itemsVenta) ? item.itemsVenta : [];
+    const validos = guardados.map((it) => ({
+        cantidad: limpiarCantidadEntera(it && it.cantidad) || 1,
+        descripcion: String((it && it.descripcion) || '').trim() || 'Consumidor final',
+        precioUnitario: limpiarImporteEntero(it && it.precioUnitario)
+    })).filter((it) => it.precioUnitario > 0);
+    if (validos.length || !item || item.origen !== 'venta') return validos;
+    return [{
+        cantidad: 1,
+        descripcion: String(item.descripcion || 'Venta anterior'),
+        precioUnitario: limpiarImporteEntero(item.importe)
+    }];
+}
+
+function uiEditarVentaCaja(item) {
+    return enqueueDialog(() => new Promise((resolve) => {
+        const backdrop = document.createElement('div');
+        backdrop.className = 'app-dialog-backdrop';
+        const dialog = document.createElement('div');
+        dialog.className = 'app-dialog app-dialog-edit caja-venta-editor';
+        const titulo = document.createElement('h3');
+        titulo.className = 'app-dialog-title';
+        titulo.textContent = 'Editar venta';
+        const lista = document.createElement('div');
+        lista.className = 'caja-venta-editor-lista';
+        const total = document.createElement('div');
+        total.className = 'caja-venta-editor-total';
+        const error = document.createElement('div');
+        error.className = 'app-edit-error';
+        const agregar = document.createElement('button');
+        agregar.type = 'button'; agregar.className = 'caja-venta-agregar'; agregar.textContent = '+ Agregar item';
+        const acciones = document.createElement('div'); acciones.className = 'app-dialog-actions';
+        const cancelar = document.createElement('button'); cancelar.type = 'button'; cancelar.className = 'app-dialog-btn app-dialog-btn-cancel'; cancelar.textContent = 'Cancelar';
+        const guardar = document.createElement('button'); guardar.type = 'button'; guardar.className = 'app-dialog-btn app-dialog-btn-ok'; guardar.textContent = 'Guardar cambios';
+        acciones.append(cancelar, guardar);
+        dialog.append(titulo, lista, agregar, total, error, acciones); backdrop.appendChild(dialog); document.body.appendChild(backdrop);
+
+        let borrador = obtenerItemsVentaCaja(item).map((it) => Object.assign({}, it));
+        const cerrar = (valor) => { backdrop.remove(); resolve(valor); };
+        const actualizarTotal = () => { total.textContent = `Total de la venta: $${formatearNumeroEntero(borrador.reduce((s, it) => s + (it.cantidad * it.precioUnitario), 0))}`; };
+        const dibujar = () => {
+            lista.innerHTML = '';
+            borrador.forEach((it, index) => {
+                const fila = document.createElement('div'); fila.className = 'caja-venta-editor-item';
+                const cantidad = document.createElement('input'); cantidad.inputMode = 'numeric'; cantidad.value = it.cantidad; cantidad.setAttribute('aria-label', 'Cantidad');
+                const descripcion = document.createElement('input'); descripcion.value = it.descripcion; descripcion.setAttribute('aria-label', 'Descripcion');
+                const precio = document.createElement('input'); precio.inputMode = 'numeric'; precio.value = formatearNumeroEntero(it.precioUnitario); precio.setAttribute('aria-label', 'Precio unitario');
+                const eliminar = document.createElement('button'); eliminar.type = 'button'; eliminar.className = 'item-venta-eliminar'; eliminar.textContent = '×'; eliminar.setAttribute('aria-label', 'Eliminar item');
+                cantidad.addEventListener('input', () => { it.cantidad = limpiarCantidadEntera(cantidad.value) || 1; actualizarTotal(); });
+                descripcion.addEventListener('input', () => { it.descripcion = descripcion.value; });
+                precio.addEventListener('input', () => { it.precioUnitario = limpiarImporteEntero(precio.value); actualizarTotal(); });
+                eliminar.addEventListener('click', () => { borrador.splice(index, 1); dibujar(); });
+                fila.append(cantidad, descripcion, precio, eliminar); lista.appendChild(fila);
+            });
+            actualizarTotal();
+        };
+        agregar.addEventListener('click', () => { borrador.push({ cantidad: 1, descripcion: '', precioUnitario: 0 }); dibujar(); });
+        cancelar.addEventListener('click', () => cerrar(null));
+        guardar.addEventListener('click', () => {
+            const items = borrador.map((it) => ({ cantidad: limpiarCantidadEntera(it.cantidad) || 1, descripcion: String(it.descripcion || '').trim() || 'Consumidor final', precioUnitario: limpiarImporteEntero(it.precioUnitario) })).filter((it) => it.precioUnitario > 0);
+            if (!items.length) { error.textContent = 'Agrega al menos un item con precio.'; return; }
+            cerrar(items);
+        });
+        dibujar();
+    }));
+}
+
 async function editarMovimientoCaja(caja, item) {
     const id = String(item && item.id ? item.id : '').trim();
     if (!id) {
         await uiAlert('No se pudo editar: movimiento sin id.', { title: 'Error' });
+        return;
+    }
+
+    if (caja === 'negocio' && item.origen === 'venta') {
+        const itemsVenta = await uiEditarVentaCaja(item);
+        if (!itemsVenta) return;
+        const importe = itemsVenta.reduce((total, it) => total + (it.cantidad * it.precioUnitario), 0);
+        const descripcion = itemsVenta.map((it) => `${it.cantidad}x ${it.descripcion}`).join(' | ');
+        try {
+            await datastore.updateFinanceMovement({ caja, id, descripcion, importe, itemsVenta });
+            await cargarCaja();
+        } catch (err) {
+            console.error('No se pudo editar la venta:', err);
+            await uiAlert('No se pudo editar la venta: ' + obtenerMensajeError(err), { title: 'Error' });
+        }
         return;
     }
 
@@ -1336,7 +1438,7 @@ async function cargarCaja() {
     renderCaja();
 }
 
-async function agregarMovimientoCaja({ caja, descripcion, importe, origen, ordenId }) {
+async function agregarMovimientoCaja({ caja, descripcion, importe, origen, ordenId, itemsVenta }) {
     const monto = limpiarImporteEntero(importe);
     if (!monto) return;
 
@@ -1345,7 +1447,8 @@ async function agregarMovimientoCaja({ caja, descripcion, importe, origen, orden
         descripcion,
         importe: monto,
         origen,
-        ordenId
+        ordenId,
+        itemsVenta
     });
     await cargarCaja();
 }
@@ -2392,7 +2495,8 @@ btnRegistrarVenta.addEventListener('click', async () => {
             caja: 'negocio',
             descripcion,
             importe,
-            origen: 'venta'
+            origen: 'venta',
+            itemsVenta: itemsVentaActual.map((item) => Object.assign({}, item))
         });
 
         itemsVentaActual = [];

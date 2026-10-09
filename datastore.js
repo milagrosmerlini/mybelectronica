@@ -75,6 +75,15 @@ function normalizarNumero(valor) {
   return Number.isFinite(n) && n > 0 ? Math.trunc(n) : 0;
 }
 
+function normalizarItemsVenta(items) {
+  if (!Array.isArray(items)) return [];
+  return items.map((it) => ({
+    cantidad: normalizarNumero(it && it.cantidad) || 1,
+    descripcion: String((it && it.descripcion) || '').trim() || 'Consumidor final',
+    precioUnitario: normalizarNumero(it && it.precioUnitario)
+  })).filter((it) => it.precioUnitario > 0);
+}
+
 function normalizarHistorial(items) {
   if (!Array.isArray(items)) return [];
   return items
@@ -84,7 +93,8 @@ function normalizarHistorial(items) {
       descripcion: it && it.descripcion ? String(it.descripcion) : '',
       importe: normalizarNumero(it && it.importe),
       origen: it && it.origen ? String(it.origen) : 'manual',
-      ordenId: it && it.ordenId ? String(it.ordenId) : null
+      ordenId: it && it.ordenId ? String(it.ordenId) : null,
+      itemsVenta: normalizarItemsVenta(it && it.itemsVenta)
     }))
     .filter((it) => it.importe > 0);
 }
@@ -457,7 +467,8 @@ async function cloudAppendFinanceMovement(movement) {
     descripcion: String((movement && movement.descripcion) || '').trim(),
     importe,
     origen: String((movement && movement.origen) || 'manual'),
-    ordenId: movement && movement.ordenId ? String(movement.ordenId) : null
+    ordenId: movement && movement.ordenId ? String(movement.ordenId) : null,
+    itemsVenta: normalizarItemsVenta(movement && movement.itemsVenta)
   };
 
   if (movement && movement.caja === 'reparaciones') {
@@ -489,7 +500,10 @@ async function cloudUpdateFinanceMovement(movement) {
   const nuevaDescripcion = String((movement && movement.descripcion) || '').trim() || 'Sin descripcion';
   listaRef.items[idx] = Object.assign({}, actual, {
     descripcion: nuevaDescripcion,
-    importe: nuevoImporte
+    importe: nuevoImporte,
+    itemsVenta: Array.isArray(movement && movement.itemsVenta)
+      ? normalizarItemsVenta(movement.itemsVenta)
+      : normalizarItemsVenta(actual.itemsVenta)
   });
 
   const actualizado = recalcularTotalesFinanceState(cur);
@@ -852,7 +866,8 @@ async function localAppendFinanceMovement(movement) {
         descripcion: String((movement && movement.descripcion) || '').trim(),
         importe,
         origen: String((movement && movement.origen) || 'manual'),
-        ordenId: movement && movement.ordenId ? String(movement.ordenId) : null
+        ordenId: movement && movement.ordenId ? String(movement.ordenId) : null,
+        itemsVenta: normalizarItemsVenta(movement && movement.itemsVenta)
       };
 
       if (movement && movement.caja === 'reparaciones') {
@@ -910,7 +925,10 @@ async function localUpdateFinanceMovement(movement) {
       const nuevaDescripcion = String((movement && movement.descripcion) || '').trim() || 'Sin descripcion';
       listaRef.items[idx] = Object.assign({}, actual, {
         descripcion: nuevaDescripcion,
-        importe: nuevoImporte
+        importe: nuevoImporte,
+        itemsVenta: Array.isArray(movement && movement.itemsVenta)
+          ? normalizarItemsVenta(movement.itemsVenta)
+          : normalizarItemsVenta(actual.itemsVenta)
       });
 
       const actualizado = recalcularTotalesFinanceState(cur);

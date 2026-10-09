@@ -743,7 +743,7 @@ function dibujarTablaItemsVenta() {
             return (
                 `<tr data-item-index="${index}">` +
                     `<td><input class="item-venta-input item-venta-cantidad" data-item-field="cantidad" inputmode="numeric" value="${formatearNumeroEntero(it.cantidad)}" aria-label="Cantidad"></td>` +
-                    `<td><input class="item-venta-input item-venta-descripcion" data-item-field="descripcion" value="${escaparValorHtml(it.descripcion)}" aria-label="Descripcion"></td>` +
+                    `<td><textarea class="item-venta-input item-venta-descripcion" data-item-field="descripcion" rows="2" aria-label="Descripcion">${escaparValorHtml(it.descripcion)}</textarea></td>` +
                     `<td><span class="item-venta-precio-signo">$</span><input class="item-venta-input item-venta-precio" data-item-field="precioUnitario" inputmode="numeric" value="${formatearNumeroEntero(it.precioUnitario)}" aria-label="Precio unitario"></td>` +
                     `<td class="item-venta-total">$${formatearNumeroEntero(total)}</td>` +
                     `<td class="item-venta-accion"><button type="button" class="item-venta-eliminar" aria-label="Eliminar item" title="Eliminar item">×</button></td>` +

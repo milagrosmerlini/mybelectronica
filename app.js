@@ -1163,11 +1163,15 @@ function dibujarHistorialCaja(contenedor, items, textoVacio, tipoCaja) {
             if (itemsVenta.length) {
                 const detalleVenta = document.createElement('div');
                 detalleVenta.className = 'historial-venta-detalle';
+                const encabezadoVenta = document.createElement('div');
+                encabezadoVenta.className = 'historial-venta-encabezado';
+                encabezadoVenta.innerHTML = '<span>Cantidad</span><span>Descripcion</span><span>Total</span>';
+                detalleVenta.appendChild(encabezadoVenta);
                 for (const venta of itemsVenta) {
                     const subtotal = venta.cantidad * venta.precioUnitario;
                     const linea = document.createElement('div');
                     linea.className = 'historial-venta-linea';
-                    linea.innerHTML = `<span>${venta.cantidad}x</span><span class="historial-venta-descripcion"></span><span>$${formatearNumeroEntero(venta.precioUnitario)}</span><b>$${formatearNumeroEntero(subtotal)}</b>`;
+                    linea.innerHTML = `<span>${venta.cantidad}</span><span class="historial-venta-descripcion"></span><b>$${formatearNumeroEntero(subtotal)}</b>`;
                     linea.querySelector('.historial-venta-descripcion').textContent = venta.descripcion;
                     detalleVenta.appendChild(linea);
                 }

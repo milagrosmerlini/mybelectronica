@@ -743,7 +743,7 @@ function dibujarTablaItemsVenta() {
             return (
                 `<tr data-item-index="${index}">` +
                     `<td><input class="item-venta-input item-venta-cantidad" data-item-field="cantidad" inputmode="numeric" value="${formatearNumeroEntero(it.cantidad)}" aria-label="Cantidad"></td>` +
-                    `<td><textarea class="item-venta-input item-venta-descripcion" data-item-field="descripcion" rows="1" aria-label="Descripcion">${escaparValorHtml(it.descripcion)}</textarea></td>` +
+                    `<td><div class="item-venta-input item-venta-descripcion" data-item-field="descripcion" contenteditable="true" role="textbox" aria-multiline="true" aria-label="Descripcion">${escaparValorHtml(it.descripcion)}</div></td>` +
                     `<td><span class="item-venta-precio-signo">$</span><input class="item-venta-input item-venta-precio" data-item-field="precioUnitario" inputmode="numeric" value="${formatearNumeroEntero(it.precioUnitario)}" aria-label="Precio unitario"></td>` +
                     `<td class="item-venta-total">$${formatearNumeroEntero(total)}</td>` +
                     `<td class="item-venta-accion"><button type="button" class="item-venta-eliminar" aria-label="Eliminar item" title="Eliminar item">×</button></td>` +
@@ -753,7 +753,6 @@ function dibujarTablaItemsVenta() {
         .join('');
 
     tablaItemsBody.querySelectorAll('.item-venta-input').forEach((input) => {
-        if (input.classList.contains('item-venta-descripcion')) ajustarAlturaDescripcionVenta(input);
         input.addEventListener('input', () => {
             const fila = input.closest('tr');
             const index = Number(fila && fila.dataset.itemIndex);
@@ -768,8 +767,7 @@ function dibujarTablaItemsVenta() {
                 item.precioUnitario = limpiarImporteEntero(input.value);
                 input.value = item.precioUnitario ? formatearNumeroEntero(item.precioUnitario) : '';
             } else if (campo === 'descripcion') {
-                item.descripcion = input.value;
-                ajustarAlturaDescripcionVenta(input);
+                item.descripcion = input.textContent;
             }
 
             const total = (item.cantidad || 0) * (item.precioUnitario || 0);
@@ -790,11 +788,6 @@ function dibujarTablaItemsVenta() {
     });
 
     actualizarResumenItemsVenta();
-}
-
-function ajustarAlturaDescripcionVenta(input) {
-    input.style.height = '32px';
-    input.style.height = `${Math.max(32, input.scrollHeight)}px`;
 }
 
 function actualizarResumenItemsVenta() {

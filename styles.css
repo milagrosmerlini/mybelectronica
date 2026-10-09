@@ -173,7 +173,7 @@ h2, h3 { text-align: center; color: #1a252f; }
 .item-venta-input { box-sizing: border-box; width: 100%; min-width: 0; border: 1px solid transparent; border-radius: 5px; background: transparent; color: #1f2937; font-family: inherit; font-size: 16px; line-height: 1.25; padding: 5px 2px; }
 .item-venta-input:hover, .item-venta-input:focus { border-color: #94a3b8; background: #f8fafc; outline: none; }
 .item-venta-cantidad { text-align: center; }
-.item-venta-descripcion { display: block; height: 32px; min-height: 32px; resize: none; overflow: hidden; text-align: center; white-space: pre-wrap; overflow-wrap: anywhere; }
+.item-venta-descripcion { display: flex; align-items: center; justify-content: center; min-height: 32px; height: auto; text-align: center; white-space: pre-wrap; overflow-wrap: anywhere; cursor: text; }
 .item-venta-precio { width: calc(100% - 12px); text-align: right; }
 .item-venta-precio-signo { display: inline-block; color: #475569; }
 .item-venta-total { white-space: nowrap; font-weight: 700; font-size: 14px; text-align: center; }

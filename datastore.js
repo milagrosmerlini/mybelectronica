@@ -691,6 +691,27 @@ async function localGetOrders() {
   });
 }
 
+async function localGetOrderPhotos(orderId) {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction([STORE_PHOTOS], 'readonly');
+    const index = tx.objectStore(STORE_PHOTOS).index('by_order');
+    const req = index.getAll(IDBKeyRange.only(String(orderId)));
+
+    tx.oncomplete = () => {
+      const fotos = (req.result || [])
+        .map((foto) => foto && typeof foto.dataUrl === 'string' ? foto.dataUrl : '')
+        .filter(Boolean);
+      db.close();
+      resolve(fotos);
+    };
+    tx.onerror = () => {
+      db.close();
+      reject(tx.error || req.error);
+    };
+  });
+}
+
 async function localExportAll() {
   return localGetOrders();
 }
@@ -1055,6 +1076,27 @@ async function getOrdersPreview() {
   }
 }
 
+// Las fotos se solicitan únicamente cuando una orden está a la vista. Evita
+// descargar todas las imágenes base64 al abrir la aplicación.
+async function getOrderPhotos(orderId) {
+  const safeId = String(orderId || '').trim();
+  if (!safeId) return [];
+  if (!usarCloud()) return localGetOrderPhotos(safeId);
+
+  try {
+    const cfg = getCloudConfig();
+    const fotos = await supabaseRequest(
+      `${cfg.photosTable}?order_id=${encodeEq(safeId)}&select=id,name,data_url`
+    );
+    return (fotos || [])
+      .map((foto) => foto && foto.data_url ? String(foto.data_url) : '')
+      .filter(Boolean);
+  } catch (err) {
+    console.warn(`No se pudieron obtener las fotos de la orden ${safeId}. Se usa la copia local.`, err);
+    return localGetOrderPhotos(safeId);
+  }
+}
+
 async function exportAll() {
   return localExportAll();
 }
@@ -1117,6 +1159,7 @@ export default {
   getOrders,
   getCachedOrders,
   getOrdersPreview,
+  getOrderPhotos,
   exportAll,
   importFromArray,
   getFinanceState,

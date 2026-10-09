@@ -98,6 +98,11 @@ let serviceWorkerHadControllerAtBoot = false;
 let serviceWorkerUpdateIntervalId = null;
 let reparaciones = [];
 let reparacionesListas = false;
+const MAX_DESCARGAS_FOTOS_SIMULTANEAS = 2;
+let colaFotosVisibles = [];
+let fotosEnDescarga = new Set();
+let fotosYaConsultadas = new Set();
+let descargasFotosActivas = 0;
 let contactosAgendaPendientes = [];
 let telefonosAgendaRegistrados = new Set();
 let proximoNumeroOrden = 1;
@@ -1411,7 +1416,9 @@ async function aplicarOrdenes(items, { migrar = true } = {}) {
 }
 
 async function fetchAndRender() {
-    const items = await datastore.getOrders();
+    // Los datos de las órdenes son livianos; las fotos se cargan después y
+    // sólo para las tarjetas visibles.
+    const items = await datastore.getOrdersPreview();
     await aplicarOrdenes(items);
 }
 
@@ -1429,8 +1436,6 @@ async function cargarOrdenesIniciales() {
         vistaReparaciones.classList.remove('is-loading');
     }
 
-    // Las fotos, que pesan más, se completan luego sin cambiar los contadores.
-    await fetchAndRenderSafe('sincronizar fotos de ordenes');
 }
 
 function actualizarContadores() {
@@ -1585,6 +1590,46 @@ function dibujarLista() {
                 if (action === 'archivar') await entregarEquipoFijo(rep);
             });
         });
+    }
+
+    solicitarFotosVisibles(filtradas);
+}
+
+function solicitarFotosVisibles(ordenes) {
+    const idsVisibles = new Set((ordenes || []).map((rep) => String(rep.id)));
+    colaFotosVisibles = colaFotosVisibles.filter((id) => idsVisibles.has(id));
+
+    for (const rep of (ordenes || [])) {
+        const id = String(rep.id);
+        if (rep.fotos.length || fotosYaConsultadas.has(id) || fotosEnDescarga.has(id) || colaFotosVisibles.includes(id)) continue;
+        colaFotosVisibles.push(id);
+    }
+    procesarColaFotosVisibles();
+}
+
+function procesarColaFotosVisibles() {
+    while (descargasFotosActivas < MAX_DESCARGAS_FOTOS_SIMULTANEAS && colaFotosVisibles.length) {
+        const id = colaFotosVisibles.shift();
+        if (fotosYaConsultadas.has(id) || fotosEnDescarga.has(id)) continue;
+
+        descargasFotosActivas += 1;
+        fotosEnDescarga.add(id);
+        datastore.getOrderPhotos(id)
+            .then((fotos) => {
+                const rep = reparaciones.find((item) => String(item.id) === id);
+                if (rep) rep.fotos = Array.isArray(fotos) ? fotos : [];
+                fotosYaConsultadas.add(id);
+                dibujarLista();
+            })
+            .catch((err) => {
+                console.warn(`No se pudieron cargar las fotos de la orden ${id}.`, err);
+                fotosYaConsultadas.add(id);
+            })
+            .finally(() => {
+                fotosEnDescarga.delete(id);
+                descargasFotosActivas -= 1;
+                procesarColaFotosVisibles();
+            });
     }
 }
 
@@ -1929,14 +1974,35 @@ function enviarWhatsAppDirecto(rep) {
     window.location.href = urlNativa;
 }
 
+async function confirmarEnvioWhatsApp(rep, textoPersonalizado = '') {
+    if (!rep.telefono) return false;
+
+    const enviar = await uiConfirm(`El cambio fue guardado. ¿Deseas enviar ahora un WhatsApp a ${obtenerNombreCliente(rep)}?`, {
+        title: 'Enviar WhatsApp',
+        okText: 'Si, enviar',
+        cancelText: 'No, por ahora'
+    });
+    if (!enviar) return false;
+
+    const numLimpio = limpiarNumeroTelefonoFijo(rep.telefono);
+    const texto = textoPersonalizado || construirMensajeWhatsApp(rep);
+    window.location.href = `whatsapp://send?phone=${numLimpio}&text=${encodeURIComponent(texto)}`;
+    return true;
+}
+
 async function cambiarEstadoConAviso(rep, nuevoEstado) {
     const upd = { estado: nuevoEstado };
     await datastore.updateOrder(rep.id, upd);
-    estadoActualFiltrado = nuevoEstado;
-    activarPestana(nuevoEstado);
 
     const actualizado = Object.assign({}, rep, upd);
-    enviarWhatsAppDirecto(actualizado);
+    Object.assign(rep, upd);
+    filtrarPor(nuevoEstado);
+
+    // Al pasar un presupuesto aceptado a Taller no se interrumpe el flujo:
+    // el aviso queda disponible en el boton manual de WhatsApp de la orden.
+    if (nuevoEstado !== 'En Reparación') {
+        await confirmarEnvioWhatsApp(actualizado);
+    }
     await fetchAndRenderSafe('refrescar ordenes');
 }
 
@@ -1948,7 +2014,11 @@ async function entregarEquipoFijo(rep) {
     });
     if (!ok) return;
 
-    await datastore.updateOrder(rep.id, { estado: 'Archivada' });
+    const upd = { estado: 'Archivada' };
+    await datastore.updateOrder(rep.id, upd);
+    Object.assign(rep, upd);
+    filtrarPor('Archivada');
+
     const montoCobrado = rep.fueReparado === false ? 0 : limpiarImporteEntero(rep.precioPresupuesto || rep.precio_presupuesto || 0);
     if (montoCobrado > 0) {
         const numeroOrden = extraerNumeroOrden(rep) || rep.idOrden || rep.id;
@@ -1963,19 +2033,15 @@ async function entregarEquipoFijo(rep) {
     }
 
     if (rep.telefono) {
-        const numLimpio = limpiarNumeroTelefonoFijo(rep.telefono);
         const numeroOrden = extraerNumeroOrden(rep) || rep.idOrden || rep.id;
         const equipo = obtenerDescripcionEquipo(rep);
         const textoCierre = rep.fueReparado === false
             ? `Hola *${rep.nombre}*, te confirmamos que tu equipo *${equipo}* bajo la orden de trabajo *N° ${numeroOrden}* fue retirado de nuestro local (Devuelto sin arreglo). Muchas gracias por confiar en *MyB Electronica*!`
             : `Hola *${rep.nombre}*, te confirmamos que tu equipo *${equipo}* bajo la orden de trabajo *N° ${numeroOrden}* fue entregado y cobrado correctamente la suma de *$${rep.precioPresupuesto || rep.precio_presupuesto || ''}*. Muchas gracias por confiar en *MyB Electronica*!`;
 
-        const urlCierre = `whatsapp://send?phone=${numLimpio}&text=${encodeURIComponent(textoCierre)}`;
-        window.location.href = urlCierre;
+        await confirmarEnvioWhatsApp(rep, textoCierre);
     }
 
-    estadoActualFiltrado = 'Terminada';
-    activarPestana('Terminada');
     await fetchAndRenderSafe('refrescar ordenes');
 }
 
@@ -2006,17 +2072,21 @@ async function abrirCargaPresupuesto(rep) {
 
     await datastore.updateOrder(rep.id, upd);
 
-    estadoActualFiltrado = 'Presupuestada';
-    activarPestana('Presupuestada');
-
     const actualizado = Object.assign({}, rep, upd);
-    enviarWhatsAppDirecto(actualizado);
+
+    // Actualiza la pantalla antes de abrir WhatsApp. En dispositivos moviles
+    // la app puede quedar en segundo plano apenas se abre WhatsApp y el
+    // refresco asincrono posterior no llega a ejecutarse.
+    Object.assign(rep, upd);
+    filtrarPor('Presupuestada');
+
+    await confirmarEnvioWhatsApp(actualizado);
 
     await fetchAndRenderSafe('refrescar ordenes');
 }
 
 async function rechazarPresupuestoFijo(rep) {
-    const ok = await uiConfirm('Marcar este equipo como rechazado por el cliente? Se enviara a terminadas sin costo y disparara el aviso.', {
+    const ok = await uiConfirm('Marcar este equipo como rechazado por el cliente? Se enviara a terminadas sin costo.', {
         title: 'Rechazar presupuesto',
         okText: 'Si, rechazar',
         cancelText: 'Cancelar'
@@ -2033,11 +2103,11 @@ async function rechazarPresupuestoFijo(rep) {
 
     await datastore.updateOrder(rep.id, upd);
 
-    estadoActualFiltrado = 'Terminada';
-    activarPestana('Terminada');
-
     const actualizado = Object.assign({}, rep, upd);
-    enviarWhatsAppDirecto(actualizado);
+    Object.assign(rep, upd);
+    filtrarPor('Terminada');
+
+    await confirmarEnvioWhatsApp(actualizado);
 
     await fetchAndRenderSafe('refrescar ordenes');
 }
@@ -2101,10 +2171,10 @@ async function guardarOrdenManual() {
     limpiarFotosTemporalesIngreso();
     mostrarVistaPreviaIngreso();
 
-    estadoActualFiltrado = 'Aceptada';
-    activarPestana('Aceptada');
+    reparaciones.unshift(nuevaOrden);
+    filtrarPor('Aceptada');
 
-    enviarWhatsAppDirecto(nuevaOrden);
+    await confirmarEnvioWhatsApp(nuevaOrden);
     await fetchAndRenderSafe('refrescar ordenes');
 }
 

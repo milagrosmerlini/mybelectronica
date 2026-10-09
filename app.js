@@ -691,6 +691,14 @@ function formatearNumeroEntero(valor) {
     return n.toLocaleString('es-AR');
 }
 
+function escaparValorHtml(valor) {
+    return String(valor ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/"/g, '&quot;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+}
+
 function limpiarCantidadEntera(raw) {
     const limpio = String(raw || '').replace(/\D/g, '');
     if (!limpio) return 0;
@@ -723,26 +731,66 @@ function dibujarTablaItemsVenta() {
     if (!tablaItemsBody) return;
 
     if (!itemsVentaActual.length) {
-        tablaItemsBody.innerHTML = '<tr class="tabla-items-vacio"><td colspan="4">Todavia no agregaste items.</td></tr>';
+        tablaItemsBody.innerHTML = '<tr class="tabla-items-vacio"><td colspan="5">Todavia no agregaste items.</td></tr>';
         if (tablaTotalGeneralValor) tablaTotalGeneralValor.textContent = '0';
         actualizarInputTotalFinal();
         return;
     }
 
     tablaItemsBody.innerHTML = itemsVentaActual
-        .map((it) => {
+        .map((it, index) => {
             const total = (it.cantidad || 0) * (it.precioUnitario || 0);
             return (
-                `<tr>` +
-                    `<td>${formatearNumeroEntero(it.cantidad)}</td>` +
-                    `<td>${it.descripcion}</td>` +
-                    `<td>$${formatearNumeroEntero(it.precioUnitario)}</td>` +
-                    `<td>$${formatearNumeroEntero(total)}</td>` +
+                `<tr data-item-index="${index}">` +
+                    `<td><input class="item-venta-input item-venta-cantidad" data-item-field="cantidad" inputmode="numeric" value="${formatearNumeroEntero(it.cantidad)}" aria-label="Cantidad"></td>` +
+                    `<td><input class="item-venta-input item-venta-descripcion" data-item-field="descripcion" value="${escaparValorHtml(it.descripcion)}" aria-label="Descripcion"></td>` +
+                    `<td><span class="item-venta-precio-signo">$</span><input class="item-venta-input item-venta-precio" data-item-field="precioUnitario" inputmode="numeric" value="${formatearNumeroEntero(it.precioUnitario)}" aria-label="Precio unitario"></td>` +
+                    `<td class="item-venta-total">$${formatearNumeroEntero(total)}</td>` +
+                    `<td class="item-venta-accion"><button type="button" class="item-venta-eliminar" aria-label="Eliminar item" title="Eliminar item">×</button></td>` +
                 `</tr>`
             );
         })
         .join('');
 
+    tablaItemsBody.querySelectorAll('.item-venta-input').forEach((input) => {
+        input.addEventListener('input', () => {
+            const fila = input.closest('tr');
+            const index = Number(fila && fila.dataset.itemIndex);
+            const item = itemsVentaActual[index];
+            if (!item) return;
+
+            const campo = input.dataset.itemField;
+            if (campo === 'cantidad') {
+                item.cantidad = limpiarCantidadEntera(input.value);
+                input.value = item.cantidad ? formatearNumeroEntero(item.cantidad) : '';
+            } else if (campo === 'precioUnitario') {
+                item.precioUnitario = limpiarImporteEntero(input.value);
+                input.value = item.precioUnitario ? formatearNumeroEntero(item.precioUnitario) : '';
+            } else if (campo === 'descripcion') {
+                item.descripcion = input.value;
+            }
+
+            const total = (item.cantidad || 0) * (item.precioUnitario || 0);
+            const celdaTotal = fila.querySelector('.item-venta-total');
+            if (celdaTotal) celdaTotal.textContent = `$${formatearNumeroEntero(total)}`;
+            actualizarResumenItemsVenta();
+        });
+    });
+
+    tablaItemsBody.querySelectorAll('.item-venta-eliminar').forEach((boton) => {
+        boton.addEventListener('click', () => {
+            const fila = boton.closest('tr');
+            const index = Number(fila && fila.dataset.itemIndex);
+            if (!Number.isInteger(index)) return;
+            itemsVentaActual.splice(index, 1);
+            dibujarTablaItemsVenta();
+        });
+    });
+
+    actualizarResumenItemsVenta();
+}
+
+function actualizarResumenItemsVenta() {
     if (tablaTotalGeneralValor) tablaTotalGeneralValor.textContent = formatearNumeroEntero(totalItemsVenta());
     actualizarInputTotalFinal();
 }

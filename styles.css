@@ -112,12 +112,13 @@ h2, h3 { text-align: center; color: #1a252f; }
 .historial-venta-detalle { display: grid; gap: 5px; margin-top: 8px; padding-top: 7px; border-top: 1px solid #edf1f5; }
 .historial-venta-encabezado, .historial-venta-linea { display: grid; grid-template-columns: 64px minmax(0, 1fr) 82px; align-items: center; gap: 12px; }
 .historial-venta-encabezado { color: #64748b; font-size: 11px; font-weight: 800; text-transform: uppercase; }
+.historial-venta-encabezado span:nth-child(2) { text-align: center; }
 .historial-venta-encabezado span:last-child { text-align: right; }
 .historial-venta-linea { color: #475569; font-size: 12px; }
 .historial-venta-descripcion { color: #1f2937; font-weight: 700; overflow-wrap: anywhere; text-align: center; }
 .historial-venta-linea b { color: #0f766e; white-space: nowrap; }
-.historial-venta-total-final { display: flex; justify-content: flex-end; gap: 8px; margin-top: 4px; padding-top: 6px; border-top: 1px solid #dbe4ec; color: #334155; font-size: 12px; font-weight: 800; }
-.historial-venta-total-final b { min-width: 82px; color: #0f766e; text-align: right; }
+.historial-venta-total-final { margin-top: 4px; padding-top: 6px; border-top: 1px solid #dbe4ec; color: #0f766e; font-size: 13px; font-weight: 800; text-align: center; }
+.historial-venta-total-final b { display: block; text-align: center; }
 .historial-item-actions { display: flex; align-items: center; gap: 6px; }
 .historial-item-btn { width: 32px; height: 32px; border: 1px solid #d3d9e2; border-radius: 9px; background: #f7f8fb; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; line-height: 1; transition: transform .12s ease, background-color .12s ease, border-color .12s ease; }
 .historial-item-btn svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
@@ -393,7 +394,6 @@ button, .btn-flujo, .btn-secundario-fijo, .btn-guardar-fijo, .menu-btn { touch-a
 }
 @media (max-width: 600px) {
     .historial-venta-encabezado, .historial-venta-linea { grid-template-columns: 54px minmax(0, 1fr) 76px; gap: 8px; }
-    .historial-venta-total-final b { min-width: 76px; }
     .caja-venta-editor-item { grid-template-columns: 54px minmax(0, 1fr) 82px 28px; gap: 5px; padding: 6px; }
     .caja-venta-editor-item input { padding: 7px 5px; font-size: 13px; }
     .photo-viewer-nav { width: 38px; height: 38px; font-size: 26px; }

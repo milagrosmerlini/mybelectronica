@@ -1176,7 +1176,7 @@ function dibujarHistorialCaja(contenedor, items, textoVacio, tipoCaja) {
                 }
                 const totalVenta = document.createElement('div');
                 totalVenta.className = 'historial-venta-total-final';
-                totalVenta.innerHTML = `<span>Total</span><b>$${formatearNumeroEntero(item.importe)}</b>`;
+                totalVenta.innerHTML = `<b>TOTAL: $${formatearNumeroEntero(item.importe)}</b>`;
                 detalleVenta.appendChild(totalVenta);
                 contenido.appendChild(detalleVenta);
             } else {

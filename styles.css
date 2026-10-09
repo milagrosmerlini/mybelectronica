@@ -165,6 +165,7 @@ h2, h3 { text-align: center; color: #1a252f; }
 .tabla-items th { background: #f6f8fb; color: #1f2937; font-size: 12px; line-height: 1.15; }
 .tabla-items th:nth-child(1), .tabla-items td:nth-child(1) { width: 11%; }
 .tabla-items th:nth-child(2), .tabla-items td:nth-child(2) { width: 41%; }
+.tabla-items td:nth-child(2) { overflow: visible; }
 .tabla-items th:nth-child(3), .tabla-items td:nth-child(3) { width: 20%; }
 .tabla-items th:nth-child(4), .tabla-items td:nth-child(4) { width: 20%; }
 .tabla-items th:nth-child(5), .tabla-items td:nth-child(5) { width: 8%; }
@@ -173,7 +174,7 @@ h2, h3 { text-align: center; color: #1a252f; }
 .item-venta-input { box-sizing: border-box; width: 100%; min-width: 0; border: 1px solid transparent; border-radius: 5px; background: transparent; color: #1f2937; font-family: inherit; font-size: 16px; line-height: 1.25; padding: 5px 2px; }
 .item-venta-input:hover, .item-venta-input:focus { border-color: #94a3b8; background: #f8fafc; outline: none; }
 .item-venta-cantidad { text-align: center; }
-.item-venta-descripcion { display: flex; align-items: center; justify-content: center; min-height: 32px; height: auto; text-align: center; white-space: pre-wrap; overflow-wrap: anywhere; cursor: text; }
+.item-venta-descripcion { display: block; min-height: 32px; height: auto; text-align: center; white-space: pre-wrap; overflow-wrap: anywhere; word-break: break-word; cursor: text; }
 .item-venta-precio { width: calc(100% - 12px); text-align: right; }
 .item-venta-precio-signo { display: inline-block; color: #475569; }
 .item-venta-total { white-space: nowrap; font-weight: 700; font-size: 14px; text-align: center; }

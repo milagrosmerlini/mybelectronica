@@ -1263,11 +1263,17 @@ function dibujarHistorialCaja(contenedor, items, textoVacio, tipoCaja) {
 
 function obtenerItemsVentaCaja(item) {
     const guardados = Array.isArray(item && item.itemsVenta) ? item.itemsVenta : [];
-    const validos = guardados.map((it) => ({
-        cantidad: limpiarCantidadEntera(it && it.cantidad) || 1,
-        descripcion: String((it && it.descripcion) || '').trim() || 'Consumidor final',
-        precioUnitario: limpiarImporteEntero(it && it.precioUnitario)
-    })).filter((it) => it.precioUnitario > 0);
+    const validos = guardados.map((it) => {
+        let cantidad = limpiarCantidadEntera(it && it.cantidad) || 1;
+        let descripcion = String((it && it.descripcion) || '').trim() || 'Consumidor final';
+        // Corrige ventas guardadas antes de separar cantidad y descripción.
+        const prefijoCantidad = descripcion.match(/^(\d+)\s*x\s+(.+)$/i);
+        if (cantidad === 1 && prefijoCantidad) {
+            cantidad = limpiarCantidadEntera(prefijoCantidad[1]) || 1;
+            descripcion = prefijoCantidad[2].trim() || 'Consumidor final';
+        }
+        return { cantidad, descripcion, precioUnitario: limpiarImporteEntero(it && it.precioUnitario) };
+    }).filter((it) => it.precioUnitario > 0);
     if (validos.length || !item || item.origen !== 'venta') return validos;
     return [{
         cantidad: 1,

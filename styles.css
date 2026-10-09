@@ -110,11 +110,12 @@ h2, h3 { text-align: center; color: #1a252f; }
 .historial-item-fecha { color: #6f7b87; font-size: 12px; }
 .historial-item-descripcion { color: #1f2937; font-weight: 600; }
 .historial-venta-detalle { display: grid; gap: 5px; margin-top: 8px; padding-top: 7px; border-top: 1px solid #edf1f5; }
-.historial-venta-encabezado, .historial-venta-linea { display: grid; grid-template-columns: 64px minmax(0, 1fr) 82px; align-items: center; gap: 12px; }
+.historial-venta-encabezado, .historial-venta-linea { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); align-items: center; gap: 0; }
 .historial-venta-encabezado { color: #64748b; font-size: 11px; font-weight: 800; text-transform: uppercase; }
+.historial-venta-encabezado span { text-align: center; }
 .historial-venta-encabezado span:nth-child(2) { text-align: center; }
-.historial-venta-encabezado span:last-child { text-align: right; }
 .historial-venta-linea { color: #475569; font-size: 12px; }
+.historial-venta-linea > span:first-child, .historial-venta-linea > b { text-align: center; }
 .historial-venta-descripcion { color: #1f2937; font-weight: 700; overflow-wrap: anywhere; text-align: center; }
 .historial-venta-linea b { color: #0f766e; white-space: nowrap; }
 .historial-venta-total-final { margin-top: 4px; padding-top: 6px; border-top: 1px solid #dbe4ec; color: #0f766e; font-size: 13px; font-weight: 800; text-align: center; }
@@ -393,7 +394,7 @@ button, .btn-flujo, .btn-secundario-fijo, .btn-guardar-fijo, .menu-btn { touch-a
     font-weight: 600;
 }
 @media (max-width: 600px) {
-    .historial-venta-encabezado, .historial-venta-linea { grid-template-columns: 54px minmax(0, 1fr) 76px; gap: 8px; }
+    .historial-venta-encabezado, .historial-venta-linea { grid-template-columns: repeat(3, minmax(0, 1fr)); }
     .caja-venta-editor-item { grid-template-columns: 54px minmax(0, 1fr) 82px 28px; gap: 5px; padding: 6px; }
     .caja-venta-editor-item input { padding: 7px 5px; font-size: 13px; }
     .photo-viewer-nav { width: 38px; height: 38px; font-size: 26px; }

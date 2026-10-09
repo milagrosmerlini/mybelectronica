@@ -1,9 +1,9 @@
-const CACHE_NAME = 'myb-electronica-cache-v93';
+const CACHE_NAME = 'myb-electronica-cache-v94';
 const APP_SHELL = [
     '/',
     '/index.html',
     '/styles.css?v=20260807-reparaciones1',
-    '/app.js?v=20261008-caja-cantidad-y-sin-zoom1',
+    '/app.js?v=20261008-caja-cantidad-historica1',
     '/datastore.js?v=20261001-fotosnavegador1',
     '/supabase-config.js?v=20261001-fotosnavegador1',
     '/articulos-nombres.json?v=20260519-menu11',

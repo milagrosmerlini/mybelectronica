@@ -1275,9 +1275,17 @@ function obtenerItemsVentaCaja(item) {
         return { cantidad, descripcion, precioUnitario: limpiarImporteEntero(it && it.precioUnitario) };
     }).filter((it) => it.precioUnitario > 0);
     if (validos.length || !item || item.origen !== 'venta') return validos;
+
+    let descripcion = String(item.descripcion || 'Venta anterior').trim();
+    let cantidad = 1;
+    const prefijoCantidad = descripcion.match(/^(\d+)\s*x\s+(.+)$/i);
+    if (prefijoCantidad) {
+        cantidad = limpiarCantidadEntera(prefijoCantidad[1]) || 1;
+        descripcion = prefijoCantidad[2].trim() || 'Venta anterior';
+    }
     return [{
-        cantidad: 1,
-        descripcion: String(item.descripcion || 'Venta anterior'),
+        cantidad,
+        descripcion,
         precioUnitario: limpiarImporteEntero(item.importe)
     }];
 }
